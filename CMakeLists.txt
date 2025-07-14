@@ -10,9 +10,8 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
-
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Charts SerialPort)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Charts SerialPort)
 set(PROJECT_SOURCES
 
         main.cpp
@@ -25,6 +24,14 @@ set(PROJECT_SOURCES
         qtmodbus.h
         circleindicator.h
         circleindicator.cpp
+        signalprocessor.cpp
+        signalprocessor.h
+        chart.cpp
+        chart.h
+        mychartview.cpp
+        mychartview.h
+        serialib.cpp
+        serialib.h
 
 )
 
@@ -35,6 +42,9 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
         circleindicator.h circleindicator.cpp
+        signalprocessor.h signalprocessor.cpp
+        chart.h chart.cpp
+        mychartview.h mychartview.cpp
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET controller_qt APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
@@ -57,7 +67,8 @@ endif()
 target_link_libraries(controller_qt PRIVATE Qt${QT_VERSION_MAJOR}::Widgets
     modbus
 )
-target_link_libraries(controller_qt PRIVATE Qt6::Widgets)
+target_link_libraries(controller_qt PRIVATE Qt6::Widgets Qt6::Charts Qt6::SerialPort)
+
 set_target_properties(controller_qt PROPERTIES
     BUILD_WITH_INSTALL_RPATH TRUE
     INSTALL_RPATH "/usr/local/lib"
@@ -85,8 +96,13 @@ install(TARGETS controller_qt
 )
 
 include_directories("/usr/local/include")
-link_directories("/usr/local/lib")
+include_directories(${CMAKE_SOURCE_DIR})
 
+link_directories("/usr/local/lib")
+set(CMAKE_AUTOUIC_SEARCH_PATHS
+    ${CMAKE_SOURCE_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}    # по умолчанию
+)
 
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(controller_qt)

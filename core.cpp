@@ -3,10 +3,9 @@
 core::core()
 {
     this->modbus = NULL;
-    this->status = DISCONNECTED;
+    this->status = DISCONNECTED_MODBUS;
     this->conn_params = NULL;
     this->current_model = DM25_400;
-
     fill_std_values();
     fill_coef();
 }
@@ -23,7 +22,7 @@ core::~core()
     }
 }
 
-int core::open()
+int core::init_modbus()
 {
     if (this->conn_params == NULL) {
         return -1;
@@ -53,14 +52,14 @@ int core::open()
     return -1;
 }
 
-int core::connect()
+int core::connect_modbus()
 {
     if (modbus == NULL)
         return -1;
 
     int a = modbus->Connect();
     if (!a) {
-        this->status = CONNECTED;
+        this->status = CONNECTED_MODBUS;
         this->load_timers_param();
         return 0;
     }
@@ -68,11 +67,11 @@ int core::connect()
     return a;
 }
 
-void core::close()
+void core::close_modbus()
 {
     if (modbus == NULL)
         return;
-    this->status = DISCONNECTED;
+    this->status = DISCONNECTED_MODBUS;
     modbus->Close();
 
     this->modbus = NULL;
@@ -132,9 +131,10 @@ int core::load_timers_param()
     start_signal.interval = a[2];
     return 0;
 }
+
 int core::UpdateValues()
 {
-    if (this->status == CONNECTED) {
+    if (this->status == CONNECTED_MODBUS) {
         uint16_t buffer_reg[9];
         uint8_t buffer_discrete[4];
 
@@ -166,7 +166,7 @@ int core::UpdateValues()
 
 int core::StartSignals()
 {
-    if (this->status == CONNECTED) {
+    if (this->status == CONNECTED_MODBUS) {
         this->start_signal.IsEnabled = true;
         uint8_t a = 1;
         if (this->modbus->WriteCoils(0, 1, &a) != 1)
@@ -178,7 +178,7 @@ int core::StartSignals()
 int core::StopSignals()
 {
     this->start_signal.IsEnabled = false;
-    if (this->status == CONNECTED) {
+    if (this->status == CONNECTED_MODBUS) {
         uint8_t a = 0;
         if (this->modbus->WriteCoils(0, 1, &a) != 1)
             return -1;
@@ -195,7 +195,7 @@ int core::SetSignals(start_signal_struct s)
         this->start_signal.duration = s.duration;
     } else
         return 3;
-    if (this->status == CONNECTED) {
+    if (this->status == CONNECTED_MODBUS) {
         a[0] = this->start_signal.frequency;
         a[1] = this->start_signal.duration;
         a[2] = this->start_signal.interval;
@@ -211,4 +211,42 @@ start_signal_struct core::GetSignals()
                                this->start_signal.frequency,
                                this->start_signal.duration,
                                this->start_signal.interval};
+}
+
+//sport
+int core::connect_sport()
+{
+    if (status == CONNECTED_MODBUS || status == CONNECTED_SPORT)
+        return -1;
+    if (sport.openDevice("/dev/ttyUSB0", 19200) != 1)
+        return -1;
+    status = CONNECTED_SPORT;
+    return 0;
+}
+
+int core::close_sprot()
+{
+    if (status == CONNECTED_SPORT)
+        sport.closeDevice();
+    return 0;
+}
+
+int core::GetADCBytes_sport(uint8_t *buffer)
+{
+    if (status == CONNECTED_SPORT) {
+        sport.flushReceiver();
+        return sport.readBytes(buffer,
+                               2 * ADC_FREQ * ADC_SAMPLES,
+                               5000,
+                               1000); // 2 *, так как ADC_VALUE - 2 байта, а uart принимает 1 байт
+    }
+    return 0;
+}
+
+int core::StartADCProcessoring(int channel)
+{
+    if (status == CONNECTED_SPORT) {
+        return sport.writeChar(channel); //1 - начать оцифровку
+    }
+    return 0;
 }

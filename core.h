@@ -1,10 +1,16 @@
 #ifndef CORE_H
 #define CORE_H
+#define STM32_ADC_FREQ 12
+#define STM32_CYCL_ADC 13.5
+#define ADC_FREQ 36
+#define ADC_SAMPLES 8
 #include "qtmodbus.h"
-
+#include "serialib.h"
 enum STATUS_ENUM {
-    DISCONNECTED,
-    CONNECTED,
+    DISCONNECTED_MODBUS,
+    DISCONNECTED_SPORT,
+    CONNECTED_MODBUS,
+    CONNECTED_SPORT,
     ERR,
 };
 
@@ -86,19 +92,27 @@ private:
 public:
     STATUS_ENUM status;
     conn_struct *conn_params;
-    int open();
-    int connect();
+    int init_modbus();
+    int connect_modbus();
     int UpdateValues();
     int StartSignals();
     int StopSignals();
     int SetSignals(start_signal_struct);
     start_signal_struct GetSignals();
-    void close();
+    void close_modbus();
     void fill_std_values();
     void fill_coef();
     int load_timers_param();
-
     qtmodbus *modbus;
+
+    //Serial port
+    int connect_sport();
+    int close_sprot();
+    int GetADCBytes_sport(uint8_t *buffer);
+    int StartADCProcessoring(int channel);
+
+    serialib sport; //в стеке потому что в динам памяти connectDevie -> fd = open падает с segm fault
+
     //может нужен указатель на heater_block
     heater_block_struct heater_block;
     energy_block_struct energy_block;

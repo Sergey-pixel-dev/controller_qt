@@ -5,6 +5,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
+    ui->setupUi(this);
     my_core = new core();
     my_core->conn_params = new conn_struct{.type = 1,
                                            .com_params = new com_struct{
@@ -15,8 +16,10 @@ MainWindow::MainWindow(QWidget *parent)
                                                .data_bits = 8,
                                                .stop_bits = 1,
                                            }};
-    ui->setupUi(this);
     timer = new QTimer();
+    my_chart = new Chart();
+    processor = new SignalProcessor();
+    buffer = new uint8_t[2 * ADC_FREQ * ADC_SAMPLES];
     connect(timer, SIGNAL(timeout()), this, SLOT(slotTimerAlarm()));
 
     msgBox = new QMessageBox();
@@ -24,6 +27,12 @@ MainWindow::MainWindow(QWidget *parent)
     ui->comboBox->addItem(QString("ДМ25-400"));
     ui->comboBox->addItem(QString("ДМ25-401"));
     ui->comboBox->addItem(QString("ДМ25-600"));
+
+    ui->comboBox_2->addItem(QString("Импульс У.Э."));
+    ui->comboBox_2->addItem(QString("Импульс I К."));
+    ui->comboBox_2->addItem(QString("Импульс U К."));
+
+    ui->chartView->setRubberBand(QChartView::RectangleRubberBand);
 
     my_core->fill_std_values();
     UpdateScreenValues();
@@ -34,14 +43,16 @@ MainWindow::~MainWindow()
     delete ui;
     delete my_core;
     delete timer;
+    delete my_chart;
+    delete processor;
 }
 
 void MainWindow::on_button_connect_clicked()
 {
-    if (my_core->status != CONNECTED) {
-        int a = my_core->open();
+    if (my_core->status != CONNECTED_MODBUS) {
+        int a = my_core->init_modbus();
         if (!a) {
-            a = my_core->connect();
+            a = my_core->connect_modbus();
             if (!a) {
                 HasBeenConnected();
                 ui->button_connect->setText("Отключить");
@@ -51,7 +62,7 @@ void MainWindow::on_button_connect_clicked()
         } else
             showErrMsgBox("Ошибка подключения", my_core->modbus->GetErrMsg(a));
 
-    } else if (my_core->status == CONNECTED) {
+    } else if (my_core->status == CONNECTED_MODBUS) {
         HasBeenDisconnected();
         ui->button_connect->setText("Подключить");
     }
@@ -76,7 +87,7 @@ void MainWindow::HasBeenConnected()
 void MainWindow::HasBeenDisconnected()
 {    
     timer->stop();
-    my_core->close();
+    my_core->close_modbus();
     my_core->fill_std_values();
     UpdateScreenValues();
 
@@ -202,4 +213,51 @@ void MainWindow::on_pushButton_clicked()
     } else if (a == 2) {
         showErrMsgBox("Ошибка подключения", "Данные не отправились");
     }
+}
+
+void MainWindow::on_tabWidget_currentChanged(int index)
+{
+    if (index == 1) {
+        my_core->close_modbus();
+        my_core->connect_sport();
+        ui->button_connect->setEnabled(false);
+
+    } else if (index == 0) {
+        my_core->close_sprot();
+        my_core->init_modbus();
+        my_core->connect_modbus();
+        ui->button_connect->setEnabled(true);
+    }
+}
+
+void MainWindow::on_pushButton_2_clicked()
+{
+    for (int i = 0; i < 2 * ADC_FREQ * ADC_SAMPLES; i++) {
+        buffer[i] = 0;
+    }
+    switch (ui->comboBox_2->currentIndex()) {
+    case 0: {
+        if (my_core->StartADCProcessoring(1) != 1)
+            return;
+        break;
+    }
+    case 1: {
+        if (my_core->StartADCProcessoring(2) != 1)
+            return;
+        break;
+    }
+    case 2: {
+        if (my_core->StartADCProcessoring(3) != 1)
+            return;
+        break;
+    }
+    }
+    int count = my_core->GetADCBytes_sport(buffer);
+    if (count != 2 * ADC_FREQ * ADC_SAMPLES)
+        return; //сделать потом механику повторного запроса
+    processor->setData(buffer, 2 * ADC_FREQ * ADC_SAMPLES);
+    processor->RawDataToData();
+    //processor->ThresholdFilter();
+    my_chart->DrawChart(processor->GetPoints());
+    ui->chartView->setChart(my_chart->GetChart());
 }
