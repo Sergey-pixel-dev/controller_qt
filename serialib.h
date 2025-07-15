@@ -38,13 +38,13 @@ This is a licence-free software, it can be used by anyone who try to build a bet
 
 // Include for Linux
 #if defined(__linux__) || defined(__APPLE__)
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/shm.h>
-#include <termios.h>
-#include <string.h>
 #include <iostream>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/shm.h>
 #include <sys/time.h>
+#include <sys/types.h>
+#include <termios.h>
 // File control definitions
 #include <fcntl.h>
 #include <unistd.h>

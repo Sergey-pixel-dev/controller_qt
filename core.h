@@ -7,8 +7,7 @@
 #include "qtmodbus.h"
 #include "serialib.h"
 enum STATUS_ENUM {
-    DISCONNECTED_MODBUS,
-    DISCONNECTED_SPORT,
+    DISCONNECTED,
     CONNECTED_MODBUS,
     CONNECTED_SPORT,
     ERR,

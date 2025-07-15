@@ -34,6 +34,8 @@ void Chart::DrawChart(QVector<QPointF> points)
     for (int i = 0; i < points.size(); ++i)
         series->append(points[i]);
 
+    series->setPointsVisible(true);
+    series->setPointLabelsVisible(true);
     chart->addSeries(series);
     chart->legend()->hide();
     chart->setTitle("Сигнал");

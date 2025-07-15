@@ -3,8 +3,8 @@
 #include <QMainWindow>
 #include <QMessageBox>
 #include <QMouseEvent>
+#include <QSerialPortInfo>
 #include <QTimer>
-#include <QtSerialPort>
 #include "chart.h"
 #include "core.h"
 QT_BEGIN_NAMESPACE
@@ -31,11 +31,15 @@ private slots:
 
     void on_pushButton_2_clicked();
 
+    void on_pushButton_3_clicked();
+
+    void on_comboBox_3_currentIndexChanged(int index);
+
 private:
     void UpdateScreenValues();
     void HasBeenConnected();
     void HasBeenDisconnected();
-
+    QByteArray kostil_name_device;
     SignalProcessor *processor;
     QTimer *timer;
     core *my_core;

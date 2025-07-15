@@ -3,7 +3,7 @@
 core::core()
 {
     this->modbus = NULL;
-    this->status = DISCONNECTED_MODBUS;
+    this->status = DISCONNECTED;
     this->conn_params = NULL;
     this->current_model = DM25_400;
     fill_std_values();
@@ -48,7 +48,7 @@ int core::init_modbus()
         modbus->SetSlave(10); //АДРЕС
         return 0;
     }
-    this->status = ERR;
+    this->status = DISCONNECTED;
     return -1;
 }
 
@@ -63,7 +63,7 @@ int core::connect_modbus()
         this->load_timers_param();
         return 0;
     }
-    this->status = ERR;
+    this->status = DISCONNECTED;
     return a;
 }
 
@@ -71,7 +71,7 @@ void core::close_modbus()
 {
     if (modbus == NULL)
         return;
-    this->status = DISCONNECTED_MODBUS;
+    this->status = DISCONNECTED;
     modbus->Close();
 
     this->modbus = NULL;
@@ -121,9 +121,9 @@ int core::load_timers_param()
 {
     uint16_t a[3];
     uint8_t b;
-    if (modbus->ReadHoldingRegisters(41000, 3, a) != 3)
+    if (modbus->ReadHoldingRegisters(41001, 3, a) != 3)
         return -1;
-    if (modbus->ReadCoils(0, 1, &b) != 1)
+    if (modbus->ReadCoils(1, 1, &b) != 1)
         return -1;
     start_signal.IsEnabled = b;
     start_signal.frequency = a[0];
@@ -140,9 +140,9 @@ int core::UpdateValues()
 
         uint16_t signal_params[3];
         uint8_t signal_enabled;
-        if (modbus->ReadInputRegisters(31000, 9, buffer_reg) != 9)
+        if (modbus->ReadInputRegisters(31001, 9, buffer_reg) != 9)
             return -1;
-        if (modbus->ReadDiscrete(10000, 3, buffer_discrete) != 3)
+        if (modbus->ReadDiscrete(10001, 3, buffer_discrete) != 3)
             return -1;
         if (load_timers_param())
             return -1;
@@ -169,7 +169,7 @@ int core::StartSignals()
     if (this->status == CONNECTED_MODBUS) {
         this->start_signal.IsEnabled = true;
         uint8_t a = 1;
-        if (this->modbus->WriteCoils(0, 1, &a) != 1)
+        if (this->modbus->WriteCoils(1, 1, &a) != 1)
             return -1;
     }
     return 0;
@@ -180,7 +180,7 @@ int core::StopSignals()
     this->start_signal.IsEnabled = false;
     if (this->status == CONNECTED_MODBUS) {
         uint8_t a = 0;
-        if (this->modbus->WriteCoils(0, 1, &a) != 1)
+        if (this->modbus->WriteCoils(1, 1, &a) != 1)
             return -1;
     }
     return 0;
@@ -189,7 +189,8 @@ int core::StopSignals()
 int core::SetSignals(start_signal_struct s)
 {
     uint16_t a[3];
-    if (s.interval <= 500 && s.interval >= 150 && s.duration <= 150 && s.frequency <= 9999) {
+    if (s.interval <= 500 && s.interval >= 150 && s.duration <= 150 && s.frequency <= 9999
+        && s.interval <= 1000000 / s.frequency - 30) {
         this->start_signal.frequency = s.frequency;
         this->start_signal.interval = s.interval;
         this->start_signal.duration = s.duration;
@@ -199,7 +200,7 @@ int core::SetSignals(start_signal_struct s)
         a[0] = this->start_signal.frequency;
         a[1] = this->start_signal.duration;
         a[2] = this->start_signal.interval;
-        if (this->modbus->WriteHoldingRegisters(41000, 3, a) != 3)
+        if (this->modbus->WriteHoldingRegisters(41001, 3, a) != 3)
             return 2;
     }
     return 0;
@@ -218,7 +219,7 @@ int core::connect_sport()
 {
     if (status == CONNECTED_MODBUS || status == CONNECTED_SPORT)
         return -1;
-    if (sport.openDevice("/dev/ttyUSB0", 19200) != 1)
+    if (sport.openDevice(conn_params->com_params->device, conn_params->com_params->baud_rate) != 1)
         return -1;
     status = CONNECTED_SPORT;
     return 0;
@@ -226,8 +227,10 @@ int core::connect_sport()
 
 int core::close_sprot()
 {
-    if (status == CONNECTED_SPORT)
+    if (status == CONNECTED_SPORT) {
         sport.closeDevice();
+        status = DISCONNECTED;
+    }
     return 0;
 }
 

@@ -10,7 +10,7 @@ MainWindow::MainWindow(QWidget *parent)
     my_core->conn_params = new conn_struct{.type = 1,
                                            .com_params = new com_struct{
                                                .device = "/dev/ttyUSB0",
-                                               .baud_rate = 19200,
+                                               .baud_rate = 115200,
 
                                                .polarity = 'N',
                                                .data_bits = 8,
@@ -34,6 +34,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->chartView->setRubberBand(QChartView::RectangleRubberBand);
 
+    on_pushButton_3_clicked();
     my_core->fill_std_values();
     UpdateScreenValues();
 }
@@ -49,25 +50,36 @@ MainWindow::~MainWindow()
 
 void MainWindow::on_button_connect_clicked()
 {
-    if (my_core->status != CONNECTED_MODBUS) {
-        int a = my_core->init_modbus();
-        if (!a) {
-            a = my_core->connect_modbus();
+    if (my_core->status == DISCONNECTED) {
+        if (ui->tabWidget->currentIndex() == 0) {
+            int a = my_core->init_modbus();
             if (!a) {
-                HasBeenConnected();
-                ui->button_connect->setText("Отключить");
+                a = my_core->connect_modbus();
+                if (!a) {
+                    HasBeenConnected();
+                    ui->button_connect->setText("Отключить");
+                } else
+                    showErrMsgBox("Ошибка подключения", my_core->modbus->GetErrMsg(a));
+
             } else
                 showErrMsgBox("Ошибка подключения", my_core->modbus->GetErrMsg(a));
-
-        } else
-            showErrMsgBox("Ошибка подключения", my_core->modbus->GetErrMsg(a));
+        } else {
+            if (!my_core->connect_sport()) {
+                ui->button_connect->setText("Отключить");
+            } else
+                showErrMsgBox("Ошибка подключения", "Не удалось подключиться.");
+        }
 
     } else if (my_core->status == CONNECTED_MODBUS) {
+        my_core->close_modbus();
+        HasBeenDisconnected();
+        ui->button_connect->setText("Подключить");
+    } else if (my_core->status == CONNECTED_SPORT) {
+        my_core->close_sprot();
         HasBeenDisconnected();
         ui->button_connect->setText("Подключить");
     }
 }
-
 void MainWindow::HasBeenConnected()
 {
     if (!my_core->UpdateValues()) {
@@ -80,14 +92,13 @@ void MainWindow::HasBeenConnected()
         ui->pushButton->setEnabled(true);
         ui->checkBox->setEnabled(true);
         //ui->checkBox_2->setEnabled(true);
+        timer->start(1000);
     }
-    timer->start(1000);
 }
 
 void MainWindow::HasBeenDisconnected()
 {    
     timer->stop();
-    my_core->close_modbus();
     my_core->fill_std_values();
     UpdateScreenValues();
 
@@ -218,46 +229,71 @@ void MainWindow::on_pushButton_clicked()
 void MainWindow::on_tabWidget_currentChanged(int index)
 {
     if (index == 1) {
-        my_core->close_modbus();
-        my_core->connect_sport();
-        ui->button_connect->setEnabled(false);
+        if (my_core->status == CONNECTED_MODBUS) {
+            my_core->close_modbus();
+            HasBeenDisconnected();
+            my_core->connect_sport();
+        }
 
     } else if (index == 0) {
-        my_core->close_sprot();
-        my_core->init_modbus();
-        my_core->connect_modbus();
-        ui->button_connect->setEnabled(true);
+        if (my_core->status == CONNECTED_SPORT) {
+            my_core->close_sprot();
+            my_core->init_modbus();
+            my_core->connect_modbus(); //возможно проверить результат подключения
+            HasBeenConnected();
+        }
     }
 }
 
 void MainWindow::on_pushButton_2_clicked()
 {
-    for (int i = 0; i < 2 * ADC_FREQ * ADC_SAMPLES; i++) {
-        buffer[i] = 0;
+    if (my_core->status == CONNECTED_SPORT) {
+        for (int i = 0; i < 2 * ADC_FREQ * ADC_SAMPLES; i++) {
+            buffer[i] = 0;
+        }
+        switch (ui->comboBox_2->currentIndex()) {
+        case 0: {
+            if (my_core->StartADCProcessoring(1) != 1)
+                return;
+            break;
+        }
+        case 1: {
+            if (my_core->StartADCProcessoring(2) != 1)
+                return;
+            break;
+        }
+        case 2: {
+            if (my_core->StartADCProcessoring(3) != 1)
+                return;
+            break;
+        }
+        }
+        int count = my_core->GetADCBytes_sport(buffer);
+        if (count != 2 * ADC_FREQ * ADC_SAMPLES)
+            return; //сделать потом механику повторного запроса
+        processor->setData(buffer, 2 * ADC_FREQ * ADC_SAMPLES);
+        processor->RawDataToData();
+        //processor->ThresholdFilter();
+        my_chart->DrawChart(processor->GetPoints());
+        ui->chartView->setChart(my_chart->GetChart());
+    } else
+        showErrMsgBox("Ошибка подключения", "Устройство отключено.");
+}
+
+void MainWindow::on_pushButton_3_clicked()
+{
+    ui->comboBox_3->clear();
+    const auto ports = QSerialPortInfo::availablePorts();
+    if (!ports.isEmpty()) {
+        for (const QSerialPortInfo &info : ports) {
+            ui->comboBox_3->addItem(info.portName());
+            //
+        }
     }
-    switch (ui->comboBox_2->currentIndex()) {
-    case 0: {
-        if (my_core->StartADCProcessoring(1) != 1)
-            return;
-        break;
-    }
-    case 1: {
-        if (my_core->StartADCProcessoring(2) != 1)
-            return;
-        break;
-    }
-    case 2: {
-        if (my_core->StartADCProcessoring(3) != 1)
-            return;
-        break;
-    }
-    }
-    int count = my_core->GetADCBytes_sport(buffer);
-    if (count != 2 * ADC_FREQ * ADC_SAMPLES)
-        return; //сделать потом механику повторного запроса
-    processor->setData(buffer, 2 * ADC_FREQ * ADC_SAMPLES);
-    processor->RawDataToData();
-    //processor->ThresholdFilter();
-    my_chart->DrawChart(processor->GetPoints());
-    ui->chartView->setChart(my_chart->GetChart());
+}
+
+void MainWindow::on_comboBox_3_currentIndexChanged(int index)
+{
+    kostil_name_device = ("/dev/" + ui->comboBox_3->currentText()).toLocal8Bit();
+    my_core->conn_params->com_params->device = kostil_name_device.constData();
 }
