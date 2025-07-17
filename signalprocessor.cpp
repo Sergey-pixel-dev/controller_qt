@@ -30,7 +30,7 @@ QVector<QPointF> SignalProcessor::GetPoints() const
 
 void SignalProcessor::RawDataToData()
 {
-    data.clear();
+    /*data.clear();
     time.clear();
     time.resize(raw_size / 2);
     data.resize(raw_size / 2);
@@ -42,6 +42,20 @@ void SignalProcessor::RawDataToData()
             = ((i % ADC_SAMPLES) * STM32_CYCL_ADC / STM32_ADC_FREQ
                + (i / ADC_SAMPLES) * STM32_CYCL_ADC / STM32_ADC_FREQ / ADC_FRAME_N)
               * 1000;
+    }*/
+    time.clear();
+    time.resize(raw_size / 2);
+    data.resize(raw_size / 2);
+    for (int i = 0; i < raw_size / 2; i++) {
+        uint16_t out = raw_data[2 * i];
+        out |= raw_data[2 * i + 1] << 8;
+        data[(ADC_FRAME_N) * (i % ADC_SAMPLES) + i / ADC_SAMPLES] = out;
+        time[(ADC_FRAME_N) * (i % ADC_SAMPLES) + i / ADC_SAMPLES] = (i % ADC_SAMPLES)
+                                                                        * STM32_CYCL_ADC * 1000
+                                                                        / STM32_ADC_FREQ
+                                                                    + (i / ADC_SAMPLES)
+                                                                          * STM32_TIM_N * 1000
+                                                                          / STM32_TIM_FREQ;
     }
 }
 
@@ -54,7 +68,7 @@ void SignalProcessor::ThresholdFilter()
     for (int i = 0; i < data.size() - 1; i++) {
         newData.append(data[i]);
         newTime.append(time[i]);
-        if (abs(data[i] - data[i + 1]) > 500)
+        if (abs(data[i] - data[i + 1]) > 700)
             i++; //data[i] добавляем, а data[i+1] пропускаем
     }
     data.swap(newData);

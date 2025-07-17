@@ -1,9 +1,11 @@
 #ifndef CORE_H
 #define CORE_H
-#define STM32_ADC_FREQ 12
-#define STM32_CYCL_ADC 13.5
-#define ADC_FRAME_N 72
-#define ADC_SAMPLES 8
+#define STM32_ADC_FREQ 12  //частота ацп
+#define STM32_CYCL_ADC 6.5 //циклов на оциффровку
+#define ADC_FRAME_N 36     //кол-во стробоскопических замеров (кадров)
+#define ADC_SAMPLES 16     //кол-во выборок в одном стробоскопическом замере
+#define STM32_TIM_FREQ 72  //частота таймера
+#define STM32_TIM_N 1      //на сколько отсчетов таймера будет сделан новый замер
 #include "qtmodbus.h"
 #include "serialib.h"
 enum STATUS_ENUM {
