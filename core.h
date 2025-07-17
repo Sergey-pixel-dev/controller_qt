@@ -2,7 +2,7 @@
 #define CORE_H
 #define STM32_ADC_FREQ 12
 #define STM32_CYCL_ADC 13.5
-#define ADC_FREQ 36
+#define ADC_FRAME_N 72
 #define ADC_SAMPLES 8
 #include "qtmodbus.h"
 #include "serialib.h"

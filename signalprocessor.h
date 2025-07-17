@@ -15,17 +15,14 @@ public:
     QVector<QPointF> GetPoints() const;
     void RawDataToData();
     void ThresholdFilter();
-    uint16_t minValue() const;
-    uint16_t maxValue() const;
 
     //  QVector<double> movingAverage(int windowSize) const;
 
 private:
     int raw_size;
-    int data_size;
     uint8_t *raw_data; //должен быть в ДИНАМ ПАМЯТИ!!
-    uint16_t *data;
-    uint16_t *time;
+    QVector<uint16_t> time;
+    QVector<uint16_t> data;
 };
 
 #endif // SIGNALPROCESSOR_H

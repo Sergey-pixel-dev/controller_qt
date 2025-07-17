@@ -19,7 +19,7 @@ MainWindow::MainWindow(QWidget *parent)
     timer = new QTimer();
     my_chart = new Chart();
     processor = new SignalProcessor();
-    buffer = new uint8_t[2 * ADC_FREQ * ADC_SAMPLES];
+    buffer = new uint8_t[2 * ADC_FRAME_N * ADC_SAMPLES];
     connect(timer, SIGNAL(timeout()), this, SLOT(slotTimerAlarm()));
 
     msgBox = new QMessageBox();
@@ -92,8 +92,10 @@ void MainWindow::HasBeenConnected()
         ui->pushButton->setEnabled(true);
         ui->checkBox->setEnabled(true);
         //ui->checkBox_2->setEnabled(true);
-        timer->start(1000);
+    } else {
+        showErrMsgBox("Ошибка подключения", "Данные не были получены.");
     }
+    timer->start(1000);
 }
 
 void MainWindow::HasBeenDisconnected()
@@ -248,7 +250,7 @@ void MainWindow::on_tabWidget_currentChanged(int index)
 void MainWindow::on_pushButton_2_clicked()
 {
     if (my_core->status == CONNECTED_SPORT) {
-        for (int i = 0; i < 2 * ADC_FREQ * ADC_SAMPLES; i++) {
+        for (int i = 0; i < 2 * ADC_FRAME_N * ADC_SAMPLES; i++) {
             buffer[i] = 0;
         }
         switch (ui->comboBox_2->currentIndex()) {
@@ -269,11 +271,11 @@ void MainWindow::on_pushButton_2_clicked()
         }
         }
         int count = my_core->GetADCBytes_sport(buffer);
-        if (count != 2 * ADC_FREQ * ADC_SAMPLES)
+        if (count != 2 * ADC_FRAME_N * ADC_SAMPLES)
             return; //сделать потом механику повторного запроса
-        processor->setData(buffer, 2 * ADC_FREQ * ADC_SAMPLES);
+        processor->setData(buffer, 2 * ADC_FRAME_N * ADC_SAMPLES);
         processor->RawDataToData();
-        //processor->ThresholdFilter();
+        processor->ThresholdFilter();
         my_chart->DrawChart(processor->GetPoints());
         ui->chartView->setChart(my_chart->GetChart());
     } else
