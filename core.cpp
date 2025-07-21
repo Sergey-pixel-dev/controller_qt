@@ -233,11 +233,11 @@ int core::close_sprot()
     }
     return 0;
 }
-
+//ПРОБЛЕМА - УСТРОЙСТВО УЖЕ МОЖЕТ ПОСЛАТЬ БАЙТЫ, А МЫ ИХ ЕЩЕ НЕ ПРИНИМАЕМ - ИСПРАВЬ ПОТОМ
 int core::GetADCBytes_sport(uint8_t *buffer)
 {
     if (status == CONNECTED_SPORT) {
-        sport.flushReceiver();
+        //sport.flushReceiver();
         return sport.readBytes(buffer,
                                2 * ADC_FRAME_N * ADC_SAMPLES,
                                5000,
@@ -250,6 +250,30 @@ int core::StartADCProcessoring(int channel)
 {
     if (status == CONNECTED_SPORT) {
         return sport.writeChar(channel); //1 - начать оцифровку
+    }
+    return 0;
+}
+
+uint16_t core::GetADCAverage()
+{
+    if (status == CONNECTED_SPORT) {
+        uint8_t buf[2];
+        uint16_t average;
+        sport.readBytes(buf, 2, 5000, 1000);
+        average = (buf[0] | buf[1] << 8);
+        return average;
+    }
+    return 0;
+}
+
+int core::StartADCAverage(int i)
+{
+    if (status == CONNECTED_SPORT) {
+        sport.writeChar(2);
+        uint8_t buffer[2];
+        buffer[0] = i & 0xFF;
+        buffer[1] = (i >> 8) & 0xFF;
+        return sport.writeBytes(buffer, 2);
     }
     return 0;
 }

@@ -1,11 +1,11 @@
 #ifndef CORE_H
 #define CORE_H
-#define STM32_ADC_FREQ 12  //частота ацп
-#define STM32_CYCL_ADC 6.5 //циклов на оциффровку
-#define ADC_FRAME_N 36     //кол-во стробоскопических замеров (кадров)
-#define ADC_SAMPLES 16     //кол-во выборок в одном стробоскопическом замере
-#define STM32_TIM_FREQ 72  //частота таймера
-#define STM32_TIM_N 1      //на сколько отсчетов таймера будет сделан новый замер
+#define STM32_ADC_FREQ 36 //частота ацп
+#define STM32_CYCL_ADC 11 //циклов на оциффровку
+#define ADC_FRAME_N 576   //кол-во стробоскопических замеров (кадров)
+#define ADC_SAMPLES 1     //кол-во выборок в одном стробоскопическом замере
+#define STM32_TIM_FREQ 72 //частота таймера
+#define STM32_TIM_N 1     //на сколько отсчетов таймера будет сделан новый замер
 #include "qtmodbus.h"
 #include "serialib.h"
 enum STATUS_ENUM {
@@ -111,6 +111,8 @@ public:
     int close_sprot();
     int GetADCBytes_sport(uint8_t *buffer);
     int StartADCProcessoring(int channel);
+    uint16_t GetADCAverage();
+    int StartADCAverage(int i);
 
     serialib sport; //в стеке потому что в динам памяти connectDevie -> fd = open падает с segm fault
 

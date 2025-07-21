@@ -275,7 +275,7 @@ void MainWindow::on_pushButton_2_clicked()
             return; //сделать потом механику повторного запроса
         processor->setData(buffer, 2 * ADC_FRAME_N * ADC_SAMPLES);
         processor->RawDataToData();
-        processor->ThresholdFilter();
+        //processor->ThresholdFilter();
         my_chart->DrawChart(processor->GetPoints());
         ui->chartView->setChart(my_chart->GetChart());
     } else
@@ -298,4 +298,37 @@ void MainWindow::on_comboBox_3_currentIndexChanged(int index)
 {
     kostil_name_device = ("/dev/" + ui->comboBox_3->currentText()).toLocal8Bit();
     my_core->conn_params->com_params->device = kostil_name_device.constData();
+}
+
+void MainWindow::on_doubleSpinBox_valueChanged(double arg1)
+{
+    uint16_t i_offset = arg1 * STM32_TIM_FREQ;
+    {
+        QSignalBlocker blocker(ui->horizontalSlider);
+        ui->horizontalSlider->setValue(i_offset);
+    }
+}
+
+void MainWindow::on_pushButton_4_clicked()
+{
+    int i = ui->horizontalSlider->value();
+    my_core->StartADCAverage(i);
+    uint16_t average = my_core->GetADCAverage();
+    my_chart->DrawAverage(QPointF(i / (double) STM32_TIM_FREQ, average));
+}
+
+void MainWindow::on_horizontalSlider_valueChanged(int value)
+{
+    {
+        QSignalBlocker blocker(ui->doubleSpinBox);
+        ui->doubleSpinBox->setValue(value / (double) STM32_TIM_FREQ);
+    }
+}
+
+void MainWindow::on_doubleSpinBox_editingFinished()
+{
+    {
+        QSignalBlocker blocker(ui->doubleSpinBox);
+        ui->doubleSpinBox->setValue(ui->horizontalSlider->value() / (double) STM32_TIM_FREQ);
+    }
 }

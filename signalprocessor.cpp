@@ -49,13 +49,15 @@ void SignalProcessor::RawDataToData()
     for (int i = 0; i < raw_size / 2; i++) {
         uint16_t out = raw_data[2 * i];
         out |= raw_data[2 * i + 1] << 8;
-        data[(ADC_FRAME_N) * (i % ADC_SAMPLES) + i / ADC_SAMPLES] = out;
-        time[(ADC_FRAME_N) * (i % ADC_SAMPLES) + i / ADC_SAMPLES] = (i % ADC_SAMPLES)
-                                                                        * STM32_CYCL_ADC * 1000
-                                                                        / STM32_ADC_FREQ
-                                                                    + (i / ADC_SAMPLES)
-                                                                          * STM32_TIM_N * 1000
-                                                                          / STM32_TIM_FREQ;
+        // data[(ADC_FRAME_N) * (i % ADC_SAMPLES) + i / ADC_SAMPLES] = out;
+        // time[(ADC_FRAME_N) * (i % ADC_SAMPLES) + i / ADC_SAMPLES] = (1 + i % ADC_SAMPLES)
+        //                                                                 * STM32_CYCL_ADC * 1000
+        //                                                                 / STM32_ADC_FREQ
+        //                                                             + (i / ADC_SAMPLES)
+        //                                                                   * STM32_TIM_N * 1000
+        //                                                                   / STM32_TIM_FREQ;
+        data[i] = out;
+        time[i] = i * (STM32_TIM_N) * 1000 / STM32_TIM_FREQ;
     }
 }
 

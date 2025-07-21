@@ -35,6 +35,14 @@ private slots:
 
     void on_comboBox_3_currentIndexChanged(int index);
 
+    void on_doubleSpinBox_valueChanged(double arg1);
+
+    void on_pushButton_4_clicked();
+
+    void on_horizontalSlider_valueChanged(int value);
+
+    void on_doubleSpinBox_editingFinished();
+
 private:
     void UpdateScreenValues();
     void HasBeenConnected();
