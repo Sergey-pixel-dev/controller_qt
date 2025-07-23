@@ -17,7 +17,7 @@ MainWindow::MainWindow(QWidget *parent)
                                                .stop_bits = 1,
                                            }};
     timer = new QTimer();
-    my_chart = new Chart();
+    my_chart = new Chart(ui->horizontalSlider);
     processor = new SignalProcessor();
     buffer = new uint8_t[2 * ADC_FRAME_N * ADC_SAMPLES];
     connect(timer, SIGNAL(timeout()), this, SLOT(slotTimerAlarm()));
@@ -33,7 +33,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->comboBox_2->addItem(QString("Импульс U К."));
 
     ui->chartView->setRubberBand(QChartView::RectangleRubberBand);
-
+    ui->chartView->setChart(my_chart->GetChart());
+    ui->spinBox_2->setEnabled(false);
     on_pushButton_3_clicked();
     my_core->fill_std_values();
     UpdateScreenValues();
@@ -209,8 +210,14 @@ void MainWindow::on_comboBox_activated(int index)
 void MainWindow::on_checkBox_checkStateChanged(const Qt::CheckState &arg1)
 {
     if (arg1 == Qt::Checked) {
-        my_core->StartSignals();
+        if (my_core->StartSignals() == -2) {
+            showErrMsgBox("Ошибка", "Неверные параметры - включить невозможно!");
+            ui->checkBox->setCheckState(Qt::Unchecked);
+            return;
+        }
+        ui->checkBox->setText(QString("ВКЛ"));
     } else {
+        ui->checkBox->setText(QString("ВЫКЛ"));
         my_core->StopSignals();
     }
 }
@@ -277,7 +284,7 @@ void MainWindow::on_pushButton_2_clicked()
         processor->RawDataToData();
         //processor->ThresholdFilter();
         my_chart->DrawChart(processor->GetPoints());
-        ui->chartView->setChart(my_chart->GetChart());
+        ui->chartView->update();
     } else
         showErrMsgBox("Ошибка подключения", "Устройство отключено.");
 }
@@ -311,10 +318,13 @@ void MainWindow::on_doubleSpinBox_valueChanged(double arg1)
 
 void MainWindow::on_pushButton_4_clicked()
 {
-    int i = ui->horizontalSlider->value();
-    my_core->StartADCAverage(i);
-    uint16_t average = my_core->GetADCAverage();
-    my_chart->DrawAverage(QPointF(i / (double) STM32_TIM_FREQ, average));
+    if (my_core->status == CONNECTED_SPORT) {
+        int i = ui->horizontalSlider->value();
+        my_core->StartADCAverage(ui->comboBox_2->currentIndex() + 1, i);
+        uint16_t average = my_core->GetADCAverage();
+        my_chart->DrawAverage(QPointF(i / (double) STM32_TIM_FREQ, average));
+    } else
+        showErrMsgBox("Ошибка подключения", "Устройство отключено.");
 }
 
 void MainWindow::on_horizontalSlider_valueChanged(int value)

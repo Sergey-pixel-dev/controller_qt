@@ -81,7 +81,7 @@ void core::fill_std_values()
 {
     //мб обнулить по-умному - через чистку памяти сразу по указателю
     StopSignals();
-    SetSignals(start_signal_struct{false, 100, 30, 150});
+    SetSignals(start_signal_struct{false, 100, 30, 0});
 
     this->heater_block.IsEnabled = 0;
     this->heater_block.control_i = 0;
@@ -167,6 +167,12 @@ int core::UpdateValues()
 int core::StartSignals()
 {
     if (this->status == CONNECTED_MODBUS) {
+        if (!(start_signal.duration <= 150 && start_signal.frequency <= 9999
+              && start_signal.duration > 0
+              && start_signal.frequency
+                     > 0)) { // start_signal.interval <= 500 && start_signal.interval <= 1000000 / start_signal.frequency - 30
+            return -2;
+        }
         this->start_signal.IsEnabled = true;
         uint8_t a = 1;
         if (this->modbus->WriteCoils(1, 1, &a) != 1)
@@ -189,8 +195,7 @@ int core::StopSignals()
 int core::SetSignals(start_signal_struct s)
 {
     uint16_t a[3];
-    if (s.interval <= 500 && s.interval >= 150 && s.duration <= 150 && s.frequency <= 9999
-        && s.interval <= 1000000 / s.frequency - 30) {
+    if (s.duration <= 150 && s.frequency <= 9999 && s.duration > 0 && s.frequency > 0) {
         this->start_signal.frequency = s.frequency;
         this->start_signal.interval = s.interval;
         this->start_signal.duration = s.duration;
@@ -249,7 +254,10 @@ int core::GetADCBytes_sport(uint8_t *buffer)
 int core::StartADCProcessoring(int channel)
 {
     if (status == CONNECTED_SPORT) {
-        return sport.writeChar(channel); //1 - начать оцифровку
+        uint8_t buf[2];
+        buf[0] = OP_ADC;
+        buf[1] = channel;
+        return sport.writeBytes(buf, 2);
     }
     return 0;
 }
@@ -266,14 +274,15 @@ uint16_t core::GetADCAverage()
     return 0;
 }
 
-int core::StartADCAverage(int i)
+int core::StartADCAverage(int channel, int i_offset)
 {
     if (status == CONNECTED_SPORT) {
-        sport.writeChar(2);
-        uint8_t buffer[2];
-        buffer[0] = i & 0xFF;
-        buffer[1] = (i >> 8) & 0xFF;
-        return sport.writeBytes(buffer, 2);
+        uint8_t buf[4];
+        buf[0] = OP_AVERAGE;
+        buf[1] = channel;
+        buf[2] = i_offset & 0xFF;
+        buf[3] = (i_offset >> 8) & 0xFF;
+        return sport.writeBytes(buf, 4);
     }
     return 0;
 }

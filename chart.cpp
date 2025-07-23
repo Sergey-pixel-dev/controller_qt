@@ -1,6 +1,6 @@
 #include "chart.h"
 
-Chart::Chart()
+Chart::Chart(QSlider *slider)
 {
     chart = new QChart();
     axisX = new QValueAxis();
@@ -16,6 +16,10 @@ Chart::Chart()
     axisY->setTitleText("Напряжение, мВ");
     chart->addAxis(axisX, Qt::AlignBottom);
     chart->addAxis(axisY, Qt::AlignLeft);
+
+    connect(axisX, &QValueAxis::rangeChanged, this, &Chart::updateSliderRange);
+
+    this->slider = slider;
 }
 
 Chart::~Chart()
@@ -23,6 +27,17 @@ Chart::~Chart()
     delete chart;
     delete axisX;
     delete axisY;
+}
+
+void Chart::updateSliderRange(qreal min, qreal max)
+{
+    int min_int = min * 576 / 8;
+    int max_int = max * 576 / 8;
+    if (!(slider->value() >= min_int) || !(slider->value() <= max_int)) {
+        slider->setValue(min_int);
+    }
+    slider->setMinimum(min_int);
+    slider->setMaximum(max_int);
 }
 
 void Chart::ClearChart()
@@ -45,7 +60,7 @@ void Chart::DrawChart(QVector<QPointF> points)
     for (int i = 0; i < points.size(); ++i)
         series->append(points[i]);
 
-    series->setPointsVisible(true);
+    //series->setPointsVisible(true);
     //series->setPointLabelsVisible(true);
     chart->addSeries(series);
     chart->legend()->hide();
@@ -61,8 +76,7 @@ void Chart::DrawAverage(QPointF average_point)
     series->setPointsVisible(true);
     series->setPointLabelsVisible(true);
     series->setMarkerSize(7.5);
-    QString label
-        = QString("(%1, %2)").arg(average_point.x(), 0, 'f', 3).arg(average_point.y(), 0, 'f', 3);
+    QString label = QString("(%1, %2)").arg(average_point.x(), 0, 'f', 3).arg(average_point.y());
     series->setPointLabelsFormat(label);
     QFont font = series->pointLabelsFont();
     font.setPointSize(12);
