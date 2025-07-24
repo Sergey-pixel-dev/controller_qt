@@ -15,8 +15,9 @@ public:
     QVector<QPointF> GetPoints() const;
     void RawDataToData();
     void ThresholdFilter();
+    void FIR_Filter();
 
-    //  QVector<double> movingAverage(int windowSize) const;
+    void MovingAverageFilter(int windowSize);
 
 private:
     int raw_size;

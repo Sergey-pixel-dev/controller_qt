@@ -70,32 +70,71 @@ void SignalProcessor::ThresholdFilter()
     for (int i = 0; i < data.size() - 1; i++) {
         newData.append(data[i]);
         newTime.append(time[i]);
-        if (abs(data[i] - data[i + 1]) > 700)
+        if (abs(data[i] - data[i + 1]) > 800)
             i++; //data[i] добавляем, а data[i+1] пропускаем
     }
     data.swap(newData);
     time.swap(newTime);
 }
 
-//QVector<double> SignalProcessor::movingAverage(int windowSize) const
-//{
-// int n = m_data.size();
-// if (windowSize <= 1 || windowSize > n) {
-//     // Нечего сглаживать — возвращаем оригинал
-//     return m_data;
-// }
+void SignalProcessor::FIR_Filter()
+{
+    const int N = 20;                                      //Длина фильтра
+    long double Fd = (STM32_TIM_FREQ / STM32_TIM_N) * 1e6; //Частота дискретизации входных данных
+    long double Fs = 400e3;                                //Частота полосы пропускания
+    long double Fx = 1e6;                                  //Частота полосы затухания
 
-// QVector<double> result(n);
-// double sum = 0.0;
+    long double H[N] = {0};    //Импульсная характеристика фильтра
+    long double H_id[N] = {0}; //Идеальная импульсная характеристика
+    long double W[N] = {0};    //Весовая функция
 
-// // Наращиваем сумму для первых windowSize точек
-// for (int i = 0; i < n; ++i) {
-//     sum += m_data[i];
-//     if (i >= windowSize)
-//         sum -= m_data[i - windowSize];
-//     // делим на число реально задействованных точек (для первых <windowSize)
-//     result[i] = sum / qMin(i + 1, windowSize);
-// }
+    //Расчет импульсной характеристики фильтра
+    double Fc = (Fs + Fx) / (2 * Fd);
 
-// return result;
-//}
+    for (int i = 0; i < N; i++) {
+        if (i == 0)
+            H_id[i] = 2 * M_PI * Fc;
+        else
+            H_id[i] = sinl(2 * M_PI * Fc * i) / (M_PI * i);
+        // весовая функция Блекмена
+        W[i] = 0.42 - 0.5 * cosl((2 * M_PI * i) / (N - 1)) + 0.08 * cosl((4 * M_PI * i) / (N - 1));
+        H[i] = H_id[i] * W[i];
+    }
+
+    //Нормировка импульсной характеристики
+    double SUM = 0;
+    for (int i = 0; i < N; i++)
+        SUM += H[i];
+    for (int i = 0; i < N; i++)
+        H[i] /= SUM; //сумма коэффициентов равна 1
+
+    QVector<uint16_t> newData;
+    newData.resize(data.size());
+    //Фильтрация входных данных
+    for (int i = 0; i < data.size(); i++) {
+        newData[i] = 0.;
+        for (int j = 0; j < N - 1; j++) {
+            if (i - j >= 0) {
+                newData[i] += H[j] * data[i - j];
+            }
+        }
+    }
+    data.swap(newData);
+}
+void SignalProcessor::MovingAverageFilter(int windowSize)
+{
+    int n = data.size();
+    if (windowSize <= 1 || windowSize > n) {
+        return;
+    }
+    int sum = 0.0;
+    QVector<uint16_t> newData;
+    newData.resize(data.size());
+    for (int i = 0; i < n; ++i) {
+        sum += data[i];
+        if (i >= windowSize)
+            sum -= data[i - windowSize];
+        newData[i] = sum / qMin(i + 1, windowSize);
+    }
+    data.swap(newData);
+}

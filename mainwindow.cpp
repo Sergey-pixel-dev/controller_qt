@@ -47,6 +47,9 @@ MainWindow::~MainWindow()
     delete timer;
     delete my_chart;
     delete processor;
+    abortFlag = true;
+    if (adcThread.joinable())
+        adcThread.join();
 }
 
 void MainWindow::on_button_connect_clicked()
@@ -256,37 +259,54 @@ void MainWindow::on_tabWidget_currentChanged(int index)
 
 void MainWindow::on_pushButton_2_clicked()
 {
-    if (my_core->status == CONNECTED_SPORT) {
-        for (int i = 0; i < 2 * ADC_FRAME_N * ADC_SAMPLES; i++) {
-            buffer[i] = 0;
-        }
-        switch (ui->comboBox_2->currentIndex()) {
-        case 0: {
-            if (my_core->StartADCProcessoring(1) != 1)
-                return;
-            break;
-        }
-        case 1: {
-            if (my_core->StartADCProcessoring(2) != 1)
-                return;
-            break;
-        }
-        case 2: {
-            if (my_core->StartADCProcessoring(3) != 1)
-                return;
-            break;
-        }
-        }
-        int count = my_core->GetADCBytes_sport(buffer);
-        if (count != 2 * ADC_FRAME_N * ADC_SAMPLES)
-            return; //сделать потом механику повторного запроса
-        processor->setData(buffer, 2 * ADC_FRAME_N * ADC_SAMPLES);
-        processor->RawDataToData();
-        //processor->ThresholdFilter();
-        my_chart->DrawChart(processor->GetPoints());
-        ui->chartView->update();
-    } else
+    if (my_core->status != CONNECTED_SPORT) {
         showErrMsgBox("Ошибка подключения", "Устройство отключено.");
+        return;
+    }
+
+    abortFlag = false;
+    if (adcThread.joinable())
+        adcThread.join();
+
+    ui->pushButton_2->setEnabled(false);
+    ui->pushButton_4->setEnabled(false);
+
+    ui->pushButton_2->setText("Получаем\nсигнал...");
+
+    int mode = ui->comboBox_2->currentIndex() + 1;
+    if (my_core->StartADCProcessoring(mode) != 1) {
+        ui->pushButton_2->setEnabled(true);
+        ui->pushButton_4->setEnabled(true);
+
+        ui->pushButton_2->setText("Получить\nсигнал");
+        return;
+    }
+    adcThread = std::thread([this]() {
+        int bytesRead = my_core->GetADCBytes_sport(buffer);
+
+        if (abortFlag.load())
+            return;
+        QMetaObject::invokeMethod(
+            this,
+            [this, bytesRead]() {
+                if (!this->isVisible())
+                    return;
+
+                ui->pushButton_2->setEnabled(true);
+                ui->pushButton_2->setText("Получить\nсигнал");
+                ui->pushButton_4->setEnabled(true);
+                if (bytesRead == 2 * ADC_FRAME_N * ADC_SAMPLES) {
+                    processor->setData(buffer, bytesRead);
+                    processor->RawDataToData();
+                    processor->FIR_Filter();
+                    my_chart->DrawChart(processor->GetPoints());
+                    ui->chartView->update();
+                } else {
+                    showErrMsgBox("Ошибка", "Не все данные были получены");
+                }
+            },
+            Qt::QueuedConnection);
+    });
 }
 
 void MainWindow::on_pushButton_3_clicked()
@@ -341,4 +361,17 @@ void MainWindow::on_doubleSpinBox_editingFinished()
         QSignalBlocker blocker(ui->doubleSpinBox);
         ui->doubleSpinBox->setValue(ui->horizontalSlider->value() / (double) STM32_TIM_FREQ);
     }
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    // Сигналим потоку, что пора закончить
+    abortFlag = true;
+
+    // Ждём, пока он корректно завершится
+    if (adcThread.joinable())
+        adcThread.join();
+
+    // После этого можно смело закрываться
+    event->accept();
 }

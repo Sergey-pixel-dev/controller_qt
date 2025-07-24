@@ -25,8 +25,6 @@ Chart::Chart(QSlider *slider)
 Chart::~Chart()
 {
     delete chart;
-    delete axisX;
-    delete axisY;
 }
 
 void Chart::updateSliderRange(qreal min, qreal max)
@@ -55,6 +53,8 @@ void Chart::ClearChart()
 void Chart::DrawChart(QVector<QPointF> points)
 {
     ClearChart();
+    axisX->setRange(0, 8);
+    axisY->setRange(0, 4000);
 
     auto *series = new QLineSeries();
     for (int i = 0; i < points.size(); ++i)

@@ -79,10 +79,8 @@ void core::close_modbus()
 
 void core::fill_std_values()
 {
-    //мб обнулить по-умному - через чистку памяти сразу по указателю
     StopSignals();
     SetSignals(start_signal_struct{false, 100, 30, 0});
-
     this->heater_block.IsEnabled = 0;
     this->heater_block.control_i = 0;
     this->heater_block.measure_i = 0;

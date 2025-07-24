@@ -7,6 +7,7 @@
 #include <QTimer>
 #include "chart.h"
 #include "core.h"
+#include <thread>
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
@@ -21,6 +22,8 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+protected:
+    void closeEvent(QCloseEvent *event) override;
 private slots:
     void on_button_connect_clicked();
     void slotTimerAlarm();
@@ -52,9 +55,12 @@ private:
     QTimer *timer;
     core *my_core;
     uint8_t *buffer; // вынести потом отсюда куда нибудь
+    int count;
     QMessageBox *msgBox;
     Ui::MainWindow *ui;
     Chart *my_chart;
+    std::thread adcThread;
+    std::atomic<bool> abortFlag{false};
     void showErrMsgBox(const char *title, const char *msg);
 };
 #endif // MAINWINDOW_H
