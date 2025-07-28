@@ -1597,7 +1597,7 @@ QSlider::handle:horizontal {
 </string>
               </property>
               <property name="maximum">
-               <number>576</number>
+               <number>720</number>
               </property>
               <property name="orientation">
                <enum>Qt::Orientation::Horizontal</enum>
@@ -1640,7 +1640,7 @@ QSlider::handle:horizontal {
                <number>3</number>
               </property>
               <property name="maximum">
-               <double>8.000000000000000</double>
+               <double>10.000000000000000</double>
               </property>
               <property name="singleStep">
                <double>0.014000000000000</double>

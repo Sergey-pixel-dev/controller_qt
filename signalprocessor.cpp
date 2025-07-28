@@ -79,46 +79,58 @@ void SignalProcessor::ThresholdFilter()
 
 void SignalProcessor::FIR_Filter()
 {
-    const int N = 20;                                      //Длина фильтра
-    long double Fd = (STM32_TIM_FREQ / STM32_TIM_N) * 1e6; //Частота дискретизации входных данных
-    long double Fs = 400e3;                                //Частота полосы пропускания
-    long double Fx = 1e6;                                  //Частота полосы затухания
+    const int N = 101;                                            // нечётное число коэффициентов
+    const long double Fd = (STM32_TIM_FREQ / STM32_TIM_N) * 1e6L; // Гц, частота дискретизации
+    // const long double Fs = 400e3L;                                // Гц, частота полосы пропускания
+    // const long double Fx = 400e3L + 0.054L; // Гц, частота начала полосы затухания
 
-    long double H[N] = {0};    //Импульсная характеристика фильтра
-    long double H_id[N] = {0}; //Идеальная импульсная характеристика
-    long double W[N] = {0};    //Весовая функция
+    const long double Fs = 5e6L;          // Гц, частота полосы пропускания
+    const long double Fx = Fs + 0.05445L; // Гц, частота начала полосы затухания
 
-    //Расчет импульсной характеристики фильтра
-    double Fc = (Fs + Fx) / (2 * Fd);
+    long double H[N] = {0};    // итоговые коэффициенты
+    long double H_id[N] = {0}; // идеальная (несмещённая) импульсная характеристика
+    long double W[N] = {0};    // окно Блэкмана
 
-    for (int i = 0; i < N; i++) {
-        if (i == 0)
-            H_id[i] = 2 * M_PI * Fc;
-        else
-            H_id[i] = sinl(2 * M_PI * Fc * i) / (M_PI * i);
-        // весовая функция Блекмена
-        W[i] = 0.42 - 0.5 * cosl((2 * M_PI * i) / (N - 1)) + 0.08 * cosl((4 * M_PI * i) / (N - 1));
-        H[i] = H_id[i] * W[i];
+    // нормированная частота среза (в единицах от Fd)
+    const long double Fc = ((Fs + Fx) / 2.0L) / Fd;
+
+    // вычисляем идеальную характеристику и окно
+    for (int n = 0; n < N; n++) {
+        // идеальный sinc
+        if (n == 0) {
+            H_id[n] = 2.0L * Fc;
+        } else {
+            H_id[n] = sinl(2.0L * M_PI * Fc * n) / (M_PI * n);
+        }
+        // окно Блэкмана
+        W[n] = 0.42L + 0.50L * cosl(2.0L * M_PI * n / (N - 1))
+               + 0.08L * cosl(4.0L * M_PI * n / (N - 1));
+        // итоговый коэффициент до нормировки
+        H[n] = H_id[n] * W[n];
     }
 
-    //Нормировка импульсной характеристики
-    double SUM = 0;
-    for (int i = 0; i < N; i++)
-        SUM += H[i];
-    for (int i = 0; i < N; i++)
-        H[i] /= SUM; //сумма коэффициентов равна 1
+    // нормировка так, чтобы сумма H[n] = 1
+    long double sum = 0.0L;
+    for (int n = 0; n < N; n++) {
+        sum += H[n];
+    }
+    for (int n = 0; n < N; n++) {
+        H[n] /= sum;
+    }
 
     QVector<uint16_t> newData;
     newData.resize(data.size());
-    //Фильтрация входных данных
+
     for (int i = 0; i < data.size(); i++) {
-        newData[i] = 0.;
-        for (int j = 0; j < N - 1; j++) {
+        long double acc = 0.0L;
+        for (int j = 0; j < N; j++) {
             if (i - j >= 0) {
-                newData[i] += H[j] * data[i - j];
+                acc += H[j] * data[i - j];
             }
         }
+        newData[i] = static_cast<uint16_t>(acc);
     }
+
     data.swap(newData);
 }
 void SignalProcessor::MovingAverageFilter(int windowSize)

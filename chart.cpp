@@ -4,13 +4,13 @@ Chart::Chart(QSlider *slider)
 {
     chart = new QChart();
     axisX = new QValueAxis();
-    axisX->setRange(0, 8);
+    axisX->setRange(0, 10);
     axisX->setLabelFormat("%.3f");
     axisX->setTickCount(20);
     axisX->setTitleText("Время, мкс");
 
     axisY = new QValueAxis();
-    axisY->setRange(0, 4000);
+    axisY->setRange(0, 3300);
     axisY->setLabelFormat("%d");
     axisY->setTickCount(10);
     axisY->setTitleText("Напряжение, мВ");
@@ -29,8 +29,8 @@ Chart::~Chart()
 
 void Chart::updateSliderRange(qreal min, qreal max)
 {
-    int min_int = min * 576 / 8;
-    int max_int = max * 576 / 8;
+    int min_int = min * 720 / 10;
+    int max_int = max * 720 / 10;
     if (!(slider->value() >= min_int) || !(slider->value() <= max_int)) {
         slider->setValue(min_int);
     }
@@ -53,8 +53,8 @@ void Chart::ClearChart()
 void Chart::DrawChart(QVector<QPointF> points)
 {
     ClearChart();
-    axisX->setRange(0, 8);
-    axisY->setRange(0, 4000);
+    axisX->setRange(0, 10);
+    axisY->setRange(0, 3300);
 
     auto *series = new QLineSeries();
     for (int i = 0; i < points.size(); ++i)

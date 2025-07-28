@@ -243,7 +243,7 @@ int core::GetADCBytes_sport(uint8_t *buffer)
         //sport.flushReceiver();
         return sport.readBytes(buffer,
                                2 * ADC_FRAME_N * ADC_SAMPLES,
-                               5000,
+                               20000,
                                1000); // 2 *, так как ADC_VALUE - 2 байта, а uart принимает 1 байт
     }
     return 0;

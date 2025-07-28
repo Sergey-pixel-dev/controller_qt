@@ -298,6 +298,7 @@ void MainWindow::on_pushButton_2_clicked()
                 if (bytesRead == 2 * ADC_FRAME_N * ADC_SAMPLES) {
                     processor->setData(buffer, bytesRead);
                     processor->RawDataToData();
+                    //processor->MovingAverageFilter(3);
                     processor->FIR_Filter();
                     my_chart->DrawChart(processor->GetPoints());
                     ui->chartView->update();
