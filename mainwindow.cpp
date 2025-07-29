@@ -95,6 +95,9 @@ void MainWindow::HasBeenConnected()
         ui->checkBox->setCheckState(signal_str.IsEnabled ? Qt::Checked : Qt::Unchecked);
         ui->pushButton->setEnabled(true);
         ui->checkBox->setEnabled(true);
+        ui->pushButton_2->setEnabled(true);
+        ui->pushButton_4->setEnabled(true);
+        ui->label_4->setText("Соединение установлено");
         //ui->checkBox_2->setEnabled(true);
     } else {
         showErrMsgBox("Ошибка подключения", "Данные не были получены.");
@@ -114,8 +117,12 @@ void MainWindow::HasBeenDisconnected()
     ui->spinBox_2->setValue(signal_str.interval);
     ui->checkBox->setCheckState(signal_str.IsEnabled ? Qt::Checked : Qt::Unchecked);
 
+    ui->pushButton_2->setEnabled(false);
+    ui->pushButton_4->setEnabled(false);
     ui->pushButton->setEnabled(false);
     ui->checkBox->setEnabled(false);
+    ui->label_4->setText("Соединение отсутствует");
+
     //ui->checkBox_2->setEnabled(false);
 }
 
@@ -123,7 +130,10 @@ void MainWindow::slotTimerAlarm()
 {
     if (!my_core->UpdateValues()) {
         UpdateScreenValues();
-    }
+        if (ui->label_4->text() == "Соединение отсутствует")
+            ui->label_4->setText("Соединение установлено");
+    } else
+        ui->label_4->setText("Соединение отсутствует");
 }
 
 void MainWindow::UpdateScreenValues()
@@ -135,6 +145,11 @@ void MainWindow::UpdateScreenValues()
         ui->widget->setActive(false);
         ui->label->setText(QString("ВЫКЛ"));
     }
+    if (my_core->heater_block.IsReady)
+        ui->label_8->setText(QString("ГОТОВ"));
+    else
+        ui->label_8->setText(QString("НЕ ГОТОВ"));
+
     ui->doubleSpinBox_1->setValue(my_core->heater_block.control_i / 1000.0);
     ui->doubleSpinBox_3->setValue(my_core->heater_block.control_i * my_core->coef.coef_i_set
                                   / 1000.0);
@@ -153,6 +168,10 @@ void MainWindow::UpdateScreenValues()
         ui->widget_5->setActive(false);
         ui->label_5->setText(QString("ВЫКЛ"));
     }
+    if (my_core->energy_block.LE_or_HE)
+        ui->label_3->setText(QString("Выбрана ВЭ"));
+    else
+        ui->label_3->setText(QString("Выбрана НЭ"));
     ui->doubleSpinBox_11->setValue(my_core->energy_block.control_he / 1000.0);
     ui->doubleSpinBox_15->setValue(my_core->energy_block.control_he * my_core->coef.coef_u_he_set
                                    / 1000.0);

@@ -72,6 +72,19 @@
        </widget>
       </item>
       <item>
+       <widget class="QLabel" name="label_4">
+        <property name="font">
+         <font>
+          <pointsize>14</pointsize>
+          <italic>true</italic>
+         </font>
+        </property>
+        <property name="text">
+         <string>Соединение отсутствует</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <spacer name="horizontalSpacer_8">
         <property name="orientation">
          <enum>Qt::Orientation::Horizontal</enum>
@@ -169,7 +182,7 @@
            <property name="geometry">
             <rect>
              <x>0</x>
-             <y>0</y>
+             <y>-76</y>
              <width>907</width>
              <height>924</height>
             </rect>
@@ -494,6 +507,19 @@
                      </property>
                      <property name="text">
                       <string>ВЫКЛ</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QLabel" name="label_8">
+                     <property name="font">
+                      <font>
+                       <pointsize>14</pointsize>
+                       <italic>true</italic>
+                      </font>
+                     </property>
+                     <property name="text">
+                      <string>НЕ ГОТОВ</string>
                      </property>
                     </widget>
                    </item>
@@ -851,6 +877,26 @@
                      </property>
                      <property name="text">
                       <string>ВЫКЛ</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="Line" name="line_11">
+                     <property name="orientation">
+                      <enum>Qt::Orientation::Vertical</enum>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QLabel" name="label_3">
+                     <property name="font">
+                      <font>
+                       <pointsize>14</pointsize>
+                       <italic>true</italic>
+                      </font>
+                     </property>
+                     <property name="text">
+                      <string>Выбрана НЭ</string>
                      </property>
                     </widget>
                    </item>
@@ -1502,6 +1548,9 @@
           </item>
           <item>
            <widget class="QPushButton" name="pushButton_2">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="sizePolicy">
              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -1669,6 +1718,9 @@ QSlider::handle:horizontal {
            <layout class="QHBoxLayout" name="horizontalLayout_6">
             <item>
              <widget class="QPushButton" name="pushButton_4">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
               <property name="font">
                <font>
                 <pointsize>12</pointsize>

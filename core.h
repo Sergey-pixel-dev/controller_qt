@@ -45,6 +45,7 @@ struct conn_struct
 struct heater_block_struct
 {
     bool IsEnabled;
+    bool IsReady;
     uint16_t measure_i;
     uint16_t measure_u;
     uint16_t control_i;
@@ -53,6 +54,7 @@ struct energy_block_struct
 {
     bool IsEnabled;
     bool IsStarted;
+    bool LE_or_HE; // 0 - LE, 1 - HE
     uint16_t control_he;
     uint16_t control_le;
     uint16_t measure_he;

@@ -3,6 +3,9 @@
 Chart::Chart(QSlider *slider)
 {
     chart = new QChart();
+    chart->legend()->hide();
+    chart->setTitle("Сигнал");
+
     axisX = new QValueAxis();
     axisX->setRange(0, 10);
     axisX->setLabelFormat("%.3f");
@@ -63,8 +66,6 @@ void Chart::DrawChart(QVector<QPointF> points)
     //series->setPointsVisible(true);
     //series->setPointLabelsVisible(true);
     chart->addSeries(series);
-    chart->legend()->hide();
-    chart->setTitle("Сигнал");
 
     series->attachAxis(axisX);
     series->attachAxis(axisY);

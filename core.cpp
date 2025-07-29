@@ -59,11 +59,11 @@ int core::connect_modbus()
 
     int a = modbus->Connect();
     if (!a) {
-        this->status = CONNECTED_MODBUS;
-        this->load_timers_param();
+        status = CONNECTED_MODBUS;
+        load_timers_param();
         return 0;
     }
-    this->status = DISCONNECTED;
+    status = DISCONNECTED;
     return a;
 }
 
@@ -71,30 +71,32 @@ void core::close_modbus()
 {
     if (modbus == NULL)
         return;
-    this->status = DISCONNECTED;
+    status = DISCONNECTED;
     modbus->Close();
 
-    this->modbus = NULL;
+    modbus = NULL;
 }
 
 void core::fill_std_values()
 {
     StopSignals();
     SetSignals(start_signal_struct{false, 100, 30, 0});
-    this->heater_block.IsEnabled = 0;
-    this->heater_block.control_i = 0;
-    this->heater_block.measure_i = 0;
-    this->heater_block.measure_u = 0;
+    heater_block.IsEnabled = 0;
+    heater_block.IsReady = 0;
+    heater_block.control_i = 0;
+    heater_block.measure_i = 0;
+    heater_block.measure_u = 0;
 
-    this->energy_block.IsEnabled = 0;
-    this->energy_block.control_le = 0;
-    this->energy_block.control_he = 0;
-    this->energy_block.measure_le = 0;
-    this->energy_block.measure_he = 0;
+    energy_block.IsEnabled = 0;
+    energy_block.LE_or_HE = 0;
+    energy_block.control_le = 0;
+    energy_block.control_he = 0;
+    energy_block.measure_le = 0;
+    energy_block.measure_he = 0;
 
-    this->cathode_block.IsEnabled = 0;
-    this->cathode_block.control_cathode = 0;
-    this->cathode_block.measure_cathode = 0;
+    cathode_block.IsEnabled = 0;
+    cathode_block.control_cathode = 0;
+    cathode_block.measure_cathode = 0;
 }
 
 void core::fill_coef()
@@ -134,22 +136,24 @@ int core::UpdateValues()
 {
     if (this->status == CONNECTED_MODBUS) {
         uint16_t buffer_reg[9];
-        uint8_t buffer_discrete[4];
+        uint8_t buffer_discrete[5];
 
         uint16_t signal_params[3];
         uint8_t signal_enabled;
         if (modbus->ReadInputRegisters(31001, 9, buffer_reg) != 9)
             return -1;
-        if (modbus->ReadDiscrete(10001, 3, buffer_discrete) != 3)
+        if (modbus->ReadDiscrete(10001, 5, buffer_discrete) != 5)
             return -1;
         if (load_timers_param())
             return -1;
         this->heater_block.IsEnabled = buffer_discrete[0];
+        this->heater_block.IsReady = buffer_discrete[4];
         this->heater_block.control_i = buffer_reg[0];
         this->heater_block.measure_i = buffer_reg[1];
         this->heater_block.measure_u = buffer_reg[2];
 
         this->energy_block.IsEnabled = buffer_discrete[1];
+        this->energy_block.LE_or_HE = buffer_discrete[3];
         this->energy_block.control_le = buffer_reg[3];
         this->energy_block.control_he = buffer_reg[4];
         this->energy_block.measure_le = buffer_reg[5];
