@@ -130,8 +130,10 @@ void MainWindow::slotTimerAlarm()
 {
     if (!my_core->UpdateValues()) {
         UpdateScreenValues();
-        if (ui->label_4->text() == "Соединение отсутствует")
+        if (ui->label_4->text() == "Соединение отсутствует") { // сравнение - костыль
             ui->label_4->setText("Соединение установлено");
+            HasBeenConnected();
+        }
     } else
         ui->label_4->setText("Соединение отсутствует");
 }
