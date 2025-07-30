@@ -1,6 +1,6 @@
 #include "chart.h"
 
-Chart::Chart(QSlider *slider)
+Chart::Chart(QSlider *sl)
 {
     chart = new QChart();
     chart->legend()->hide();
@@ -22,7 +22,7 @@ Chart::Chart(QSlider *slider)
 
     connect(axisX, &QValueAxis::rangeChanged, this, &Chart::updateSliderRange);
 
-    this->slider = slider;
+    slider = sl;
 }
 
 Chart::~Chart()

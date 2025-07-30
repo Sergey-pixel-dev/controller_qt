@@ -338,14 +338,17 @@ void MainWindow::on_pushButton_3_clicked()
     if (!ports.isEmpty()) {
         for (const QSerialPortInfo &info : ports) {
             ui->comboBox_3->addItem(info.portName());
-            //
         }
     }
 }
 
 void MainWindow::on_comboBox_3_currentIndexChanged(int index)
 {
+#if defined(_WIN32) || defined(_WIN64)
+    kostil_name_device = (ui->comboBox_3->currentText()).toLocal8Bit();
+#elif defined(__linux__)
     kostil_name_device = ("/dev/" + ui->comboBox_3->currentText()).toLocal8Bit();
+#endif
     my_core->conn_params->com_params->device = kostil_name_device.constData();
 }
 
