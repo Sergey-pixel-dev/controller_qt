@@ -70,6 +70,8 @@ void MainWindow::on_button_connect_clicked()
         } else {
             if (!my_core->connect_sport()) {
                 ui->button_connect->setText("Отключить");
+                HasBeenConnected();
+
             } else
                 showErrMsgBox("Ошибка подключения", "Не удалось подключиться.");
         }
@@ -266,6 +268,7 @@ void MainWindow::on_tabWidget_currentChanged(int index)
             my_core->close_modbus();
             HasBeenDisconnected();
             my_core->connect_sport();
+            HasBeenConnected();
         }
 
     } else if (index == 0) {

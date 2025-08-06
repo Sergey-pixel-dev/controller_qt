@@ -45,6 +45,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         signalprocessor.h signalprocessor.cpp
         chart.h chart.cpp
         mychartview.h mychartview.cpp
+
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET controller_qt APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
@@ -64,11 +65,14 @@ else()
     endif()
 endif()
 
+include_directories($ENV{HOME}/mingw64-prefix/include)
+link_directories($ENV{HOME}/mingw64-prefix)
+
+target_link_libraries(controller_qt PRIVATE Qt6::Widgets Qt6::Charts Qt6::SerialPort)
+
 target_link_libraries(controller_qt PRIVATE Qt${QT_VERSION_MAJOR}::Widgets
     modbus
 )
-target_link_libraries(controller_qt PRIVATE Qt6::Widgets Qt6::Charts Qt6::SerialPort)
-
 set_target_properties(controller_qt PROPERTIES
     BUILD_WITH_INSTALL_RPATH TRUE
     INSTALL_RPATH "/usr/local/lib"

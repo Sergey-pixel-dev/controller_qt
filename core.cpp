@@ -148,20 +148,20 @@ int core::UpdateValues()
             return -1;
         heater_block.IsEnabled = buffer_discrete[0];
         heater_block.IsReady = buffer_discrete[4];
-        heater_block.control_i = buffer_reg[0];
-        heater_block.measure_i = buffer_reg[1];
-        heater_block.measure_u = buffer_reg[2];
+        heater_block.control_i = buffer_reg[1];
+        heater_block.measure_i = buffer_reg[5];
+        heater_block.measure_u = buffer_reg[7];
 
         energy_block.IsEnabled = buffer_discrete[1];
         energy_block.LE_or_HE = buffer_discrete[3];
-        energy_block.control_le = buffer_reg[3];
+        energy_block.control_le = buffer_reg[0];
         energy_block.control_he = buffer_reg[4];
-        energy_block.measure_le = buffer_reg[5];
-        energy_block.measure_he = buffer_reg[6];
+        energy_block.measure_le = buffer_reg[6];
+        energy_block.measure_he = buffer_reg[8];
 
         cathode_block.IsEnabled = buffer_discrete[2];
-        cathode_block.control_cathode = buffer_reg[7];
-        cathode_block.measure_cathode = buffer_reg[8];
+        cathode_block.control_cathode = buffer_reg[3];
+        cathode_block.measure_cathode = buffer_reg[2];
     }
     return 0;
 }
@@ -247,7 +247,7 @@ int core::GetADCBytes_sport(uint8_t *buffer)
         //sport.flushReceiver();
         return sport.readBytes(buffer,
                                2 * ADC_FRAME_N * ADC_SAMPLES,
-                               20000,
+                               30000,
                                1000); // 2 *, так как ADC_VALUE - 2 байта, а uart принимает 1 байт
     }
     return 0;

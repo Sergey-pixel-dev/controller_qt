@@ -182,7 +182,7 @@
            <property name="geometry">
             <rect>
              <x>0</x>
-             <y>-76</y>
+             <y>0</y>
              <width>907</width>
              <height>924</height>
             </rect>
@@ -197,7 +197,7 @@
                </sizepolicy>
               </property>
               <property name="title">
-               <string>Управление сигналами</string>
+               <string>Управление электродом</string>
               </property>
               <layout class="QVBoxLayout" name="verticalLayout_23">
                <item>
