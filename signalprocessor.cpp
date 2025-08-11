@@ -8,14 +8,13 @@ SignalProcessor::SignalProcessor()
 //data - перепеши в vector<uint16_t>
 SignalProcessor::~SignalProcessor()
 {
-    if (raw_data != NULL)
-        delete raw_data;
+
 }
 
 void SignalProcessor::setData(uint8_t *data, int size)
 {
     raw_data = data;
-    this->raw_size = size;
+    raw_size = size;
 }
 
 QVector<QPointF> SignalProcessor::GetPoints() const
@@ -30,47 +29,42 @@ QVector<QPointF> SignalProcessor::GetPoints() const
 
 void SignalProcessor::RawDataToData()
 {
-    /*data.clear();
-    time.clear();
-    time.resize(raw_size / 2);
-    data.resize(raw_size / 2);
-    for (int i = 0; i < raw_size / 2; i++) {
-        uint16_t out = raw_data[2 * i];
-        out |= raw_data[2 * i + 1] << 8;
-        data[ADC_FRAME_N * (i % ADC_SAMPLES) + i / ADC_SAMPLES] = out;
-        time[ADC_FRAME_N * (i % ADC_SAMPLES) + i / ADC_SAMPLES]
-            = ((i % ADC_SAMPLES) * STM32_CYCL_ADC / STM32_ADC_FREQ
-               + (i / ADC_SAMPLES) * STM32_CYCL_ADC / STM32_ADC_FREQ / ADC_FRAME_N)
-              * 1000;
-    }*/
-    time.clear();
-    time.resize(raw_size / 2);
-    data.resize(raw_size / 2);
-    for (int i = 0; i < raw_size / 2; i++) {
-        uint16_t out = raw_data[2 * i];
-        out |= raw_data[2 * i + 1] << 8;
-        // data[(ADC_FRAME_N) * (i % ADC_SAMPLES) + i / ADC_SAMPLES] = out;
-        // time[(ADC_FRAME_N) * (i % ADC_SAMPLES) + i / ADC_SAMPLES] = (1 + i % ADC_SAMPLES)
-        //                                                                 * STM32_CYCL_ADC * 1000
-        //                                                                 / STM32_ADC_FREQ
-        //                                                             + (i / ADC_SAMPLES)
-        //                                                                   * STM32_TIM_N * 1000
-        //                                                                   / STM32_TIM_FREQ;
-        data[i] = out;
-        time[i] = i * (STM32_TIM_N) * 1000 / STM32_TIM_FREQ;
+    uint16_t out = 0;
+    uint16_t size = raw_size / 2 / averaging;
+    uint32_t sum = 0;
+    origin_time.resize(size);
+    origin_data.resize(size);
+    for (int i = 0; i < size; i++) {
+        sum = 0;
+        for (int j = 0; j < averaging; j++) {
+            out = raw_data[2 * i + j * size * 2];
+            out |= raw_data[2 * i + 1 + j * size * 2] << 8;
+            sum += out;
+        }
+        out = sum / averaging;
+        origin_data[(ADC_FRAME_N) * (i % n_samples) + i / n_samples] = out;
+        origin_time[(ADC_FRAME_N) * (i % n_samples) + i / n_samples] = (i % n_samples)
+                                                                           * STM32_CYCL_ADC * 1000
+                                                                           / STM32_ADC_FREQ
+                                                                       + (i / n_samples)
+                                                                             * STM32_TIM_N * 1000
+                                                                             / STM32_TIM_FREQ;
     }
+    delete raw_data;
+    raw_size = 0;
+    data = origin_data;
+    time = origin_time;
 }
-
 void SignalProcessor::ThresholdFilter()
 {
     QVector<uint16_t> newData;
     QVector<uint16_t> newTime;
-    newData.reserve(data.size());
-    newTime.reserve(time.size());
-    for (int i = 0; i < data.size() - 1; i++) {
-        newData.append(data[i]);
-        newTime.append(time[i]);
-        if (abs(data[i] - data[i + 1]) > 800)
+    newData.reserve(origin_data.size());
+    newTime.reserve(origin_time.size());
+    for (int i = 0; i < origin_data.size() - 1; i++) {
+        newData.append(origin_data[i]);
+        newTime.append(origin_time[i]);
+        if (abs(origin_data[i] - origin_data[i + 1]) > 1000)
             i++; //data[i] добавляем, а data[i+1] пропускаем
     }
     data.swap(newData);
@@ -81,8 +75,6 @@ void SignalProcessor::FIR_Filter()
 {
     const int N = 101;                                            // нечётное число коэффициентов
     const long double Fd = (STM32_TIM_FREQ / STM32_TIM_N) * 1e6L; // Гц, частота дискретизации
-    // const long double Fs = 400e3L;                                // Гц, частота полосы пропускания
-    // const long double Fx = 400e3L + 0.054L; // Гц, частота начала полосы затухания
 
     const long double Fs = 5e6L;          // Гц, частота полосы пропускания
     const long double Fx = Fs + 0.05445L; // Гц, частота начала полосы затухания
@@ -119,34 +111,42 @@ void SignalProcessor::FIR_Filter()
     }
 
     QVector<uint16_t> newData;
-    newData.resize(data.size());
+    newData.resize(origin_data.size());
 
-    for (int i = 0; i < data.size(); i++) {
+    for (int i = 0; i < origin_data.size(); i++) {
         long double acc = 0.0L;
         for (int j = 0; j < N; j++) {
             if (i - j >= 0) {
-                acc += H[j] * data[i - j];
+                acc += H[j] * origin_data[i - j];
             }
         }
-        newData[i] = static_cast<uint16_t>(acc);
+        if (acc < 0)
+            newData[i] = 0;
+        else
+            newData[i] = static_cast<uint16_t>(acc);
     }
-
     data.swap(newData);
 }
 void SignalProcessor::MovingAverageFilter(int windowSize)
 {
-    int n = data.size();
+    int n = origin_data.size();
     if (windowSize <= 1 || windowSize > n) {
         return;
     }
     int sum = 0.0;
     QVector<uint16_t> newData;
-    newData.resize(data.size());
+    newData.resize(origin_data.size());
     for (int i = 0; i < n; ++i) {
-        sum += data[i];
+        sum += origin_data[i];
         if (i >= windowSize)
-            sum -= data[i - windowSize];
+            sum -= origin_data[i - windowSize];
         newData[i] = sum / qMin(i + 1, windowSize);
     }
     data.swap(newData);
+}
+
+void SignalProcessor::NoneFilter()
+{
+    data = origin_data;
+    time = origin_time;
 }

@@ -18,13 +18,13 @@ public:
     Chart(QSlider *slider);
     ~Chart();
     QSlider *slider;
+    QValueAxis *axisX;
+    QValueAxis *axisY;
 
 private slots:
     void updateSliderRange(qreal min, qreal max);
 
 private:
-    QValueAxis *axisX;
-    QValueAxis *axisY;
     void ClearChart();
     QChart *chart;
 };

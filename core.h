@@ -1,9 +1,9 @@
 #ifndef CORE_H
 #define CORE_H
 #define STM32_ADC_FREQ 36 //частота ацп
-#define STM32_CYCL_ADC 11 //циклов на оциффровку
-#define ADC_FRAME_N 720   //кол-во стробоскопических замеров (кадров)
-#define ADC_SAMPLES 1     //кол-во выборок в одном стробоскопическом замере
+#define STM32_CYCL_ADC 13 //циклов на оциффровку
+#define ADC_FRAME_N 26    //кол-во стробоскопических замеров (кадров)
+#define ADC_SAMPLES 25    //кол-во выборок в одном стробоскопическом замере
 #define STM32_TIM_FREQ 72 //частота таймера
 #define STM32_TIM_N 1     //на сколько отсчетов таймера будет сделан новый замер
 
@@ -14,6 +14,11 @@
 
 #include "qtmodbus.h"
 #include "serialib.h"
+
+//оцифровка:
+extern int n_samples;
+extern int averaging;
+
 enum STATUS_ENUM {
     DISCONNECTED,
     CONNECTED_MODBUS,
@@ -117,8 +122,7 @@ public:
     //Serial port
     int connect_sport();
     int close_sprot();
-    int GetADCBytes_sport(uint8_t *buffer);
-    int StartADCProcessoring(int channel);
+    int GetADCBytes(int channel, uint8_t *buffer);
     uint16_t GetADCAverage();
     int StartADCAverage(int channel, int i_offset);
 
@@ -130,6 +134,7 @@ public:
     cathode_block_struct cathode_block;
     enum_model current_model;
     coef_struct coef;
+
     core();
     ~core();
 };

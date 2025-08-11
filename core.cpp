@@ -1,5 +1,8 @@
 #include "core.h"
 
+int n_samples = ADC_SAMPLES;
+int averaging = 1;
+
 core::core()
 {
     modbus = NULL;
@@ -102,15 +105,15 @@ void core::fill_std_values()
 void core::fill_coef()
 {
     if (current_model == DM25_400) {
-        coef.coef_i_set = 2.8 / 2.2;
-        coef.coef_i_meas = 2.8 / 2.0;
+        coef.coef_i_set = 5.0 / 2.2;
+        coef.coef_i_meas = 5.0 / 2.0;
     } else {
         coef.coef_i_set = 5.0 / 2.2;
         coef.coef_i_meas = 5.0 / 2.0;
     }
     coef.coef_u_heater_meas = 6.0 / 2.0;
     coef.coef_u_le_set = 2.3e3 / 2.5;
-    coef.coef_u_le_meas = 2.3e3 / 2.0;
+    coef.coef_u_le_meas = 2.0e3 / 2.0;
     coef.coef_u_he_set = 2.3e3 / 2.5;
     coef.coef_u_he_meas = 2.0e3 / 2.0;
     coef.coef_u_cat_set = 25e3 / 2.0;
@@ -240,26 +243,26 @@ int core::close_sprot()
     }
     return 0;
 }
-//ПРОБЛЕМА - УСТРОЙСТВО УЖЕ МОЖЕТ ПОСЛАТЬ БАЙТЫ, А МЫ ИХ ЕЩЕ НЕ ПРИНИМАЕМ - ИСПРАВЬ ПОТОМ
-int core::GetADCBytes_sport(uint8_t *buffer)
-{
-    if (status == CONNECTED_SPORT) {
-        //sport.flushReceiver();
-        return sport.readBytes(buffer,
-                               2 * ADC_FRAME_N * ADC_SAMPLES,
-                               30000,
-                               1000); // 2 *, так как ADC_VALUE - 2 байта, а uart принимает 1 байт
-    }
-    return 0;
-}
 
-int core::StartADCProcessoring(int channel)
+int core::GetADCBytes(int channel, uint8_t *buffer)
 {
     if (status == CONNECTED_SPORT) {
-        uint8_t buf[2];
+        uint8_t buf[3];
         buf[0] = OP_ADC;
         buf[1] = channel;
-        return sport.writeBytes(buf, 2);
+        buf[2] = n_samples;
+        for (int i = 0; i < averaging; i++) {
+            if (sport.writeBytes(buf, 3) != 1)
+                return -1;
+            if (sport.readBytes(buffer + i * 2 * ADC_FRAME_N * n_samples,
+                                2 * ADC_FRAME_N * n_samples,
+                                10000,
+                                1000)
+                != 2 * ADC_FRAME_N * n_samples) {
+                return -1;
+            }
+        }
+        return 1;
     }
     return 0;
 }

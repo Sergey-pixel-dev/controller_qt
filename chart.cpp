@@ -7,13 +7,13 @@ Chart::Chart(QSlider *sl)
     chart->setTitle("Сигнал");
 
     axisX = new QValueAxis();
-    axisX->setRange(0, 10);
+    axisX->setRange(0, 9);
     axisX->setLabelFormat("%.3f");
     axisX->setTickCount(20);
     axisX->setTitleText("Время, мкс");
 
     axisY = new QValueAxis();
-    axisY->setRange(0, 3300);
+    axisY->setRange(0, 3350);
     axisY->setLabelFormat("%d");
     axisY->setTickCount(10);
     axisY->setTitleText("Напряжение, мВ");
@@ -56,8 +56,6 @@ void Chart::ClearChart()
 void Chart::DrawChart(QVector<QPointF> points)
 {
     ClearChart();
-    axisX->setRange(0, 10);
-    axisY->setRange(0, 3300);
 
     auto *series = new QLineSeries();
     for (int i = 0; i < points.size(); ++i)

@@ -46,6 +46,14 @@ private slots:
 
     void on_doubleSpinBox_editingFinished();
 
+    void on_pushButton_5_clicked();
+
+    void on_comboBox_6_currentIndexChanged(int index);
+
+    void on_comboBox_4_currentIndexChanged(int index);
+
+    void on_comboBox_7_currentIndexChanged(int index);
+
 private:
     void UpdateScreenValues();
     void HasBeenConnected();
@@ -54,7 +62,6 @@ private:
     SignalProcessor *processor;
     QTimer *timer;
     core *my_core;
-    uint8_t *buffer; // вынести потом отсюда куда нибудь
     int count;
     QMessageBox *msgBox;
     Ui::MainWindow *ui;
