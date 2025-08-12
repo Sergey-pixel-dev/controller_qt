@@ -12,7 +12,7 @@
 class Chart : public QChart
 {
 public:
-    void DrawChart(QVector<QPointF> points);
+    void DrawChart(QVector<QPointF> &points);
     void DrawAverage(QPointF average_point);
     QChart *GetChart();
     Chart(QSlider *slider);
@@ -20,12 +20,12 @@ public:
     QSlider *slider;
     QValueAxis *axisX;
     QValueAxis *axisY;
+    QLineSeries *series;
 
 private slots:
     void updateSliderRange(qreal min, qreal max);
 
 private:
-    void ClearChart();
     QChart *chart;
 };
 

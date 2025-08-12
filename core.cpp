@@ -244,27 +244,36 @@ int core::close_sprot()
     return 0;
 }
 
-int core::GetADCBytes(int channel, uint8_t *buffer)
+int core::StartADCBytes(int channel)
 {
     if (status == CONNECTED_SPORT) {
         uint8_t buf[3];
-        buf[0] = OP_ADC;
+        buf[0] = OP_ADC_START;
         buf[1] = channel;
         buf[2] = n_samples;
-        for (int i = 0; i < averaging; i++) {
-            if (sport.writeBytes(buf, 3) != 1)
-                return -1;
-            if (sport.readBytes(buffer + i * 2 * ADC_FRAME_N * n_samples,
-                                2 * ADC_FRAME_N * n_samples,
-                                10000,
-                                1000)
-                != 2 * ADC_FRAME_N * n_samples) {
-                return -1;
-            }
-        }
+        return sport.writeBytes(buf, 3);
+    }
+    return -1;
+}
+
+int core::GetADCBytes(uint8_t *buffer)
+{
+    if (status == CONNECTED_SPORT) {;
+        if (sport.readBytes(buffer, 2 * ADC_FRAME_N * n_samples, 2000, 1000)
+            != 2 * ADC_FRAME_N * n_samples)
+            return -1;
         return 1;
     }
-    return 0;
+    return -1;
+}
+
+int core::StopADCBytes()
+{
+    if (status == CONNECTED_SPORT) {
+        uint8_t buf = OP_ADC_STOP;
+        return sport.writeBytes(&buf, 1);
+    }
+    return -1;
 }
 
 uint16_t core::GetADCAverage()

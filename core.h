@@ -9,8 +9,9 @@
 
 //команды
 #define OP_MODBUS 0x10  //slave-id
-#define OP_ADC 0x01     //оцифровка
+#define OP_ADC_START 0x01 //оцифровка
 #define OP_AVERAGE 0x02 //среднее
+#define OP_ADC_STOP 0x03
 
 #include "qtmodbus.h"
 #include "serialib.h"
@@ -122,7 +123,9 @@ public:
     //Serial port
     int connect_sport();
     int close_sprot();
-    int GetADCBytes(int channel, uint8_t *buffer);
+    int StartADCBytes(int channel);
+    int GetADCBytes(uint8_t *buffer);
+    int StopADCBytes();
     uint16_t GetADCAverage();
     int StartADCAverage(int channel, int i_offset);
 

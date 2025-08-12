@@ -43,16 +43,18 @@ private slots:
     void on_pushButton_4_clicked();
 
     void on_horizontalSlider_valueChanged(int value);
-
     void on_doubleSpinBox_editingFinished();
-
     void on_pushButton_5_clicked();
-
     void on_comboBox_6_currentIndexChanged(int index);
-
     void on_comboBox_4_currentIndexChanged(int index);
-
     void on_comboBox_7_currentIndexChanged(int index);
+
+    void adcThreadLoop();
+    void handleThreadResult(uint8_t *buffer);
+
+    void updateChart(QVector<QPointF> points);
+signals:
+    void requestChartUpdate(QVector<QPointF> points);
 
 private:
     void UpdateScreenValues();
@@ -68,6 +70,8 @@ private:
     Chart *my_chart;
     std::thread adcThread;
     std::atomic<bool> abortFlag{false};
+
+    bool StateADC;
     void showErrMsgBox(const char *title, const char *msg);
 };
 #endif // MAINWINDOW_H

@@ -21,8 +21,12 @@ Chart::Chart(QSlider *sl)
     chart->addAxis(axisY, Qt::AlignLeft);
 
     connect(axisX, &QValueAxis::rangeChanged, this, &Chart::updateSliderRange);
-
     slider = sl;
+
+    series = new QLineSeries();
+    chart->addSeries(series);
+    series->attachAxis(axisX);
+    series->attachAxis(axisY);
 }
 
 Chart::~Chart()
@@ -41,32 +45,9 @@ void Chart::updateSliderRange(qreal min, qreal max)
     slider->setMaximum(max_int);
 }
 
-void Chart::ClearChart()
+void Chart::DrawChart(QVector<QPointF> &points)
 {
-    const auto series = chart->series();
-    for (QAbstractSeries *s : series) {
-        QXYSeries *xy = qobject_cast<QXYSeries *>(s);
-        if (xy) {
-            chart->removeSeries(xy);
-            xy->clear();
-        }
-    }
-}
-
-void Chart::DrawChart(QVector<QPointF> points)
-{
-    ClearChart();
-
-    auto *series = new QLineSeries();
-    for (int i = 0; i < points.size(); ++i)
-        series->append(points[i]);
-
-    //series->setPointsVisible(true);
-    //series->setPointLabelsVisible(true);
-    chart->addSeries(series);
-
-    series->attachAxis(axisX);
-    series->attachAxis(axisY);
+    series->replace(points);
 }
 
 void Chart::DrawAverage(QPointF average_point)

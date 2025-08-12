@@ -5,7 +5,6 @@ SignalProcessor::SignalProcessor()
     raw_size = 0;
     raw_data = NULL;
 }
-//data - перепеши в vector<uint16_t>
 SignalProcessor::~SignalProcessor()
 {
 
@@ -50,8 +49,6 @@ void SignalProcessor::RawDataToData()
                                                                              * STM32_TIM_N * 1000
                                                                              / STM32_TIM_FREQ;
     }
-    delete raw_data;
-    raw_size = 0;
     data = origin_data;
     time = origin_time;
 }

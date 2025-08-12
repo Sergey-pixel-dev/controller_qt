@@ -21,6 +21,11 @@ MainWindow::MainWindow(QWidget *parent)
     processor = new SignalProcessor();
 
     connect(timer, SIGNAL(timeout()), this, SLOT(slotTimerAlarm()));
+    connect(this,
+            &MainWindow::requestChartUpdate,
+            this,
+            &MainWindow::updateChart,
+            Qt::QueuedConnection);
 
     msgBox = new QMessageBox();
 
@@ -65,6 +70,7 @@ MainWindow::~MainWindow()
     delete timer;
     delete my_chart;
     delete processor;
+    StateADC = false;
     abortFlag = true;
     if (adcThread.joinable())
         adcThread.join();
@@ -308,61 +314,26 @@ void MainWindow::on_pushButton_2_clicked()
         showErrMsgBox("Ошибка подключения", "Устройство отключено.");
         return;
     }
+    if (!StateADC) {
+        StateADC = true;
+        abortFlag.store(false);
 
-    // if (!my_core->GetSignals().IsEnabled) {
-    //     showErrMsgBox("Ошибка", "Невозможно получить сигнал. Необходимо включить \"СТАРТ\"");
-    //     return;
-    // }
-    abortFlag = false;
-    if (adcThread.joinable())
-        adcThread.join();
-
-    ui->pushButton_2->setEnabled(false);
-    ui->pushButton_4->setEnabled(false);
-
-    ui->pushButton_2->setText("Получаем\nсигнал...");
-
-    adcThread = std::thread([this]() {
-        uint8_t *buffer = new uint8_t[2 * ADC_FRAME_N * n_samples * averaging];
-        int res = my_core->GetADCBytes(ui->comboBox_2->currentIndex() + 1, buffer);
-        if (abortFlag.load())
+        if (my_core->StartADCBytes(ui->comboBox_2->currentIndex() + 1) != 1) {
+            showErrMsgBox("Ошибка подключения", "Устройство отключено.");
             return;
-        QMetaObject::invokeMethod(
-            this,
-            [this, res, buffer]() {
-                if (!this->isVisible())
-                    return;
+        }
 
-                ui->pushButton_2->setEnabled(true);
-                ui->pushButton_2->setText("Получить\nсигнал");
-                ui->pushButton_4->setEnabled(true);
-                if (res != 1) {
-                    showErrMsgBox("Ошибка", "Не все данные были получены");
-                    return;
-                }
-                processor->setData(buffer, 2 * ADC_FRAME_N * n_samples * averaging);
-                processor->RawDataToData();
-                on_comboBox_7_currentIndexChanged(
-                    ui->comboBox_7->currentIndex()); //применяем фильтры
-                //обновляем оси, так как если мы приблизили старый график, то новый построится и не обновит оси
-                //и стандартно состояние зума будет принято за прибилжегние старого графика
-                // switch (n_samples) {
-                // case 8:
-                //     my_chart->axisX->setRange(0, 3);
-                //     break;
-                // case 16:
-                //     my_chart->axisX->setRange(0, 6);
-                //     break;
-                // case 24:
-                // default:
-                //     my_chart->axisX->setRange(0, 9);
-                // }
-                // my_chart->axisY->setRange(0, 3350);
-                my_chart->DrawChart(processor->GetPoints());
-                ui->chartView->update();
-            },
-            Qt::QueuedConnection);
-    });
+        adcThread = std::thread(&MainWindow::adcThreadLoop, this);
+        ui->pushButton_2->setText("СТОП");
+        return;
+    }
+    ui->pushButton_2->setText("Останавливается...");
+    ui->pushButton_2->setEnabled(false);
+    QApplication::processEvents();
+    abortFlag.store(true);
+    if (adcThread.joinable()) {
+        adcThread.join();
+    }
 }
 
 void MainWindow::on_pushButton_3_clicked()
@@ -487,5 +458,42 @@ void MainWindow::on_comboBox_7_currentIndexChanged(int index)
     //     my_chart->axisX->setRange(0, 9);
     // }
     // my_chart->axisY->setRange(0, 3350);
-    my_chart->DrawChart(processor->GetPoints());
+    //my_chart->DrawChart(processor->GetPoints());
+}
+
+void MainWindow::adcThreadLoop()
+{
+    uint8_t *buffer = new uint8_t[2 * ADC_FRAME_N * n_samples * averaging];
+    int res = 1;
+    auto task = std::bind(&MainWindow::handleThreadResult, this, buffer);
+    while (!abortFlag.load()) {
+        for (int i = 0; i < averaging && res == 1; i++) {
+            res = my_core->GetADCBytes(buffer + i * 2 * ADC_FRAME_N * n_samples);
+        }
+        if (res == 1) {
+            processor->setData(buffer, 2 * ADC_FRAME_N * n_samples * averaging);
+            processor->RawDataToData();
+            emit requestChartUpdate(processor->GetPoints());
+        }
+    }
+    QMetaObject::invokeMethod(this, task, Qt::QueuedConnection);
+}
+
+void MainWindow::handleThreadResult(uint8_t *buffer)
+{
+    if (my_core->StopADCBytes() == 1) {
+        delete[] buffer;
+        StateADC = false;
+        if (ui->pushButton_2) {
+            ui->pushButton_2->setEnabled(true);
+            ui->pushButton_2->setText("СТАРТ");
+        }
+    }
+}
+
+void MainWindow::updateChart(QVector<QPointF> points)
+{
+    if (my_chart) {
+        my_chart->DrawChart(points);
+    }
 }
