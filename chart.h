@@ -21,6 +21,8 @@ public:
     QValueAxis *axisX;
     QValueAxis *axisY;
     QLineSeries *series;
+    QLineSeries *average_series;
+    QVector<QPointF> single_point;
 
 private slots:
     void updateSliderRange(qreal min, qreal max);

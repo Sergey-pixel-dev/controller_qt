@@ -27,6 +27,20 @@ Chart::Chart(QSlider *sl)
     chart->addSeries(series);
     series->attachAxis(axisX);
     series->attachAxis(axisY);
+
+    //для средней точки
+    average_series = new QLineSeries();
+    average_series->setPointsVisible(true);
+    average_series->setPointLabelsVisible(true);
+    average_series->setMarkerSize(7.5);
+    chart->addSeries(average_series);
+    average_series->attachAxis(axisX);
+    average_series->attachAxis(axisY);
+    QFont font = average_series->pointLabelsFont();
+    font.setPointSize(12);
+    average_series->setPointLabelsFont(font);
+
+    single_point.resize(1);
 }
 
 Chart::~Chart()
@@ -52,20 +66,12 @@ void Chart::DrawChart(QVector<QPointF> &points)
 
 void Chart::DrawAverage(QPointF average_point)
 {
-    auto *series = new QLineSeries();
-    series->setPointsVisible(true);
-    series->setPointLabelsVisible(true);
-    series->setMarkerSize(7.5);
-    QString label = QString("(%1, %2)").arg(average_point.x(), 0, 'f', 3).arg(average_point.y());
+    QString label
+        = QString("(%1, %2)").arg(average_point.x(), 0, 'f', 3).arg(average_point.y(), 0, 'f', 3);
     series->setPointLabelsFormat(label);
-    QFont font = series->pointLabelsFont();
-    font.setPointSize(12);
-    series->setPointLabelsFont(font);
-    series->append(average_point);
-    chart->addSeries(series);
-    series->attachAxis(axisX);
-    series->attachAxis(axisY);
-    chart->update();
+    single_point[0] = average_point;
+    average_series->replace(single_point);
+    //chart->update();
 }
 
 QChart *Chart::GetChart()

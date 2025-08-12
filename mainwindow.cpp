@@ -360,6 +360,19 @@ void MainWindow::on_comboBox_3_currentIndexChanged(int index)
 void MainWindow::on_doubleSpinBox_valueChanged(double arg1)
 {
     uint16_t i_offset = arg1 * STM32_TIM_FREQ;
+    //мб вынести текущий канал в core
+
+    switch (ui->comboBox_2->currentIndex()) {
+    case 0:
+        my_core->energy_block.impulse_pos = i_offset;
+        break;
+    case 1:
+        my_core->cathode_block.impulse_i_pos = i_offset;
+        break;
+    case 2:
+        my_core->cathode_block.impulse_u_pos = i_offset;
+        break;
+    }
     {
         QSignalBlocker blocker(ui->horizontalSlider);
         ui->horizontalSlider->setValue(i_offset);
@@ -368,17 +381,24 @@ void MainWindow::on_doubleSpinBox_valueChanged(double arg1)
 
 void MainWindow::on_pushButton_4_clicked()
 {
-    if (my_core->status == CONNECTED_SPORT) {
-        int i = ui->horizontalSlider->value();
-        my_core->StartADCAverage(ui->comboBox_2->currentIndex() + 1, i);
-        uint16_t average = my_core->GetADCAverage();
-        my_chart->DrawAverage(QPointF(i / (double) STM32_TIM_FREQ, average));
-    } else
-        showErrMsgBox("Ошибка подключения", "Устройство отключено.");
+    
 }
 
 void MainWindow::on_horizontalSlider_valueChanged(int value)
 {
+    uint16_t i_offset = value;
+
+    switch (ui->comboBox_2->currentIndex()) {
+    case 0:
+        my_core->energy_block.impulse_pos = i_offset;
+        break;
+    case 1:
+        my_core->cathode_block.impulse_i_pos = i_offset;
+        break;
+    case 2:
+        my_core->cathode_block.impulse_u_pos = i_offset;
+        break;
+    }
     {
         QSignalBlocker blocker(ui->doubleSpinBox);
         ui->doubleSpinBox->setValue(value / (double) STM32_TIM_FREQ);
@@ -473,6 +493,26 @@ void MainWindow::adcThreadLoop()
         if (res == 1) {
             processor->setData(buffer, 2 * ADC_FRAME_N * n_samples * averaging);
             processor->RawDataToData();
+            switch (ui->comboBox_2->currentIndex()) {
+            case 0:
+                my_core->energy_block.impulse
+                    = (my_core->energy_block.impulse
+                       + processor->origin_data[my_core->energy_block.impulse_pos])
+                      / 2;
+                break;
+            case 1:
+                my_core->cathode_block.impulse_i
+                    = (my_core->cathode_block.impulse_i
+                       + processor->origin_data[my_core->cathode_block.impulse_i_pos])
+                      / 2;
+                break;
+            case 2:
+                my_core->cathode_block.impulse_u
+                    = (my_core->cathode_block.impulse_u
+                       + processor->origin_data[my_core->cathode_block.impulse_u_pos])
+                      / 2;
+                break;
+            }
             emit requestChartUpdate(processor->GetPoints());
         }
     }
@@ -495,5 +535,22 @@ void MainWindow::updateChart(QVector<QPointF> points)
 {
     if (my_chart) {
         my_chart->DrawChart(points);
+        switch (ui->comboBox_2->currentIndex()) {
+        case 0:
+            my_chart->DrawAverage(
+                QPointF(processor->origin_time[my_core->energy_block.impulse_pos] / 1000.0,
+                        my_core->energy_block.impulse));
+            break;
+        case 1:
+            my_chart->DrawAverage(
+                QPointF(processor->origin_time[my_core->cathode_block.impulse_i_pos] / 1000.0,
+                        my_core->cathode_block.impulse_i));
+            break;
+        case 2:
+            my_chart->DrawAverage(
+                QPointF(processor->origin_time[my_core->cathode_block.impulse_u_pos] / 1000.0,
+                        my_core->cathode_block.impulse_u));
+            break;
+        }
     }
 }

@@ -96,10 +96,16 @@ void core::fill_std_values()
     energy_block.control_he = 0;
     energy_block.measure_le = 0;
     energy_block.measure_he = 0;
+    energy_block.impulse = 0;
+    energy_block.impulse_pos = 0;
 
     cathode_block.IsEnabled = 0;
     cathode_block.control_cathode = 0;
     cathode_block.measure_cathode = 0;
+    cathode_block.impulse_i = 0;
+    cathode_block.impulse_u = 0;
+    cathode_block.impulse_i_pos = 0;
+    cathode_block.impulse_u_pos = 0;
 }
 
 void core::fill_coef()

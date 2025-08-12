@@ -65,12 +65,18 @@ struct energy_block_struct
     uint16_t control_le;
     uint16_t measure_he;
     uint16_t measure_le;
+    uint16_t impulse;
+    int impulse_pos;
 };
 struct cathode_block_struct
 {
     bool IsEnabled;
     uint16_t control_cathode;
     uint16_t measure_cathode;
+    uint16_t impulse_i;
+    uint16_t impulse_u;
+    int impulse_i_pos;
+    int impulse_u_pos;
 };
 
 struct coef_struct
