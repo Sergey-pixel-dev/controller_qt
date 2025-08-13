@@ -72,6 +72,19 @@
        </widget>
       </item>
       <item>
+       <widget class="QPushButton" name="button_connect">
+        <property name="font">
+         <font>
+          <pointsize>15</pointsize>
+          <italic>true</italic>
+         </font>
+        </property>
+        <property name="text">
+         <string>Подключить</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QLabel" name="label_4">
         <property name="font">
          <font>
@@ -166,7 +179,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
@@ -182,278 +195,285 @@
            <property name="geometry">
             <rect>
              <x>0</x>
-             <y>0</y>
-             <width>950</width>
-             <height>924</height>
+             <y>-199</y>
+             <width>967</width>
+             <height>917</height>
             </rect>
            </property>
            <layout class="QVBoxLayout" name="verticalLayout">
             <item>
-             <widget class="QGroupBox" name="groupBox_5">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
+             <widget class="Section" name="section_2" native="true">
+              <property name="minimumSize">
+               <size>
+                <width>300</width>
+                <height>100</height>
+               </size>
               </property>
-              <property name="title">
-               <string>Управление электродом</string>
-              </property>
-              <layout class="QVBoxLayout" name="verticalLayout_23">
-               <item>
-                <layout class="QVBoxLayout" name="verticalLayout_9">
-                 <item>
-                  <layout class="QHBoxLayout" name="horizontalLayout_10">
-                   <item>
-                    <widget class="QLabel" name="label_40">
-                     <property name="font">
-                      <font>
-                       <pointsize>14</pointsize>
-                       <italic>true</italic>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string>Сигнал &quot;СТАРТ&quot;</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignmentFlag::AlignCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="CircleIndicator" name="widget_3" native="true"/>
-                   </item>
-                   <item>
-                    <widget class="QCheckBox" name="checkBox">
-                     <property name="enabled">
-                      <bool>false</bool>
-                     </property>
-                     <property name="font">
-                      <font>
-                       <pointsize>14</pointsize>
-                       <italic>true</italic>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string>ВЫКЛ</string>
-                     </property>
-                     <property name="iconSize">
-                      <size>
-                       <width>25</width>
-                       <height>25</height>
-                      </size>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <spacer name="horizontalSpacer_4">
-                     <property name="orientation">
-                      <enum>Qt::Orientation::Horizontal</enum>
-                     </property>
-                     <property name="sizeType">
-                      <enum>QSizePolicy::Policy::Expanding</enum>
-                     </property>
-                     <property name="sizeHint" stdset="0">
-                      <size>
-                       <width>40</width>
-                       <height>20</height>
-                      </size>
-                     </property>
-                    </spacer>
-                   </item>
-                  </layout>
-                 </item>
-                 <item>
-                  <layout class="QHBoxLayout" name="horizontalLayout_11">
-                   <item>
-                    <widget class="QLabel" name="label_48">
-                     <property name="font">
-                      <font>
-                       <pointsize>14</pointsize>
-                       <italic>true</italic>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string>Сигнал &quot;ЭНЕРГИЯ&quot;</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignmentFlag::AlignCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="CircleIndicator" name="widget_2" native="true"/>
-                   </item>
-                   <item>
-                    <widget class="QCheckBox" name="checkBox_2">
-                     <property name="enabled">
-                      <bool>false</bool>
-                     </property>
-                     <property name="font">
-                      <font>
-                       <pointsize>14</pointsize>
-                       <italic>true</italic>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string>ВЫКЛ</string>
-                     </property>
-                     <property name="iconSize">
-                      <size>
-                       <width>25</width>
-                       <height>25</height>
-                      </size>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <spacer name="horizontalSpacer_5">
-                     <property name="orientation">
-                      <enum>Qt::Orientation::Horizontal</enum>
-                     </property>
-                     <property name="sizeType">
-                      <enum>QSizePolicy::Policy::Expanding</enum>
-                     </property>
-                     <property name="sizeHint" stdset="0">
-                      <size>
-                       <width>40</width>
-                       <height>20</height>
-                      </size>
-                     </property>
-                    </spacer>
-                   </item>
-                  </layout>
-                 </item>
-                </layout>
-               </item>
-               <item>
-                <layout class="QGridLayout" name="gridLayout">
-                 <item row="0" column="0">
-                  <widget class="QLabel" name="label_41">
-                   <property name="font">
-                    <font>
-                     <pointsize>14</pointsize>
-                     <italic>true</italic>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>Частота, ГЦ</string>
-                   </property>
-                   <property name="alignment">
-                    <set>Qt::AlignmentFlag::AlignCenter</set>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="0" column="1">
-                  <widget class="QLabel" name="label_42">
-                   <property name="font">
-                    <font>
-                     <pointsize>14</pointsize>
-                     <italic>true</italic>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>Длительность
+              <widget class="QWidget" name="widget_8" native="true">
+               <property name="geometry">
+                <rect>
+                 <x>920</x>
+                 <y>70</y>
+                 <width>20</width>
+                 <height>20</height>
+                </rect>
+               </property>
+               <layout class="QVBoxLayout" name="verticalLayout_11">
+                <item>
+                 <layout class="QVBoxLayout" name="verticalLayout_9">
+                  <item>
+                   <layout class="QHBoxLayout" name="horizontalLayout_10">
+                    <item>
+                     <widget class="QLabel" name="label_40">
+                      <property name="font">
+                       <font>
+                        <pointsize>14</pointsize>
+                        <italic>true</italic>
+                       </font>
+                      </property>
+                      <property name="text">
+                       <string>Сигнал &quot;ЗАПУСК&quot;</string>
+                      </property>
+                      <property name="alignment">
+                       <set>Qt::AlignmentFlag::AlignCenter</set>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="CircleIndicator" name="widget_3" native="true"/>
+                    </item>
+                    <item>
+                     <widget class="QCheckBox" name="checkBox">
+                      <property name="enabled">
+                       <bool>false</bool>
+                      </property>
+                      <property name="font">
+                       <font>
+                        <pointsize>14</pointsize>
+                        <italic>true</italic>
+                       </font>
+                      </property>
+                      <property name="text">
+                       <string>ВЫКЛ</string>
+                      </property>
+                      <property name="iconSize">
+                       <size>
+                        <width>25</width>
+                        <height>25</height>
+                       </size>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="Line" name="line_12">
+                      <property name="lineWidth">
+                       <number>25</number>
+                      </property>
+                      <property name="midLineWidth">
+                       <number>25</number>
+                      </property>
+                      <property name="orientation">
+                       <enum>Qt::Orientation::Vertical</enum>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QLabel" name="label_48">
+                      <property name="font">
+                       <font>
+                        <pointsize>14</pointsize>
+                        <italic>true</italic>
+                       </font>
+                      </property>
+                      <property name="text">
+                       <string>Сигнал &quot;ЭНЕРГИЯ&quot;</string>
+                      </property>
+                      <property name="alignment">
+                       <set>Qt::AlignmentFlag::AlignCenter</set>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="CircleIndicator" name="widget_2" native="true">
+                      <property name="minimumSize">
+                       <size>
+                        <width>0</width>
+                        <height>0</height>
+                       </size>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QCheckBox" name="checkBox_2">
+                      <property name="enabled">
+                       <bool>false</bool>
+                      </property>
+                      <property name="font">
+                       <font>
+                        <pointsize>14</pointsize>
+                        <italic>true</italic>
+                       </font>
+                      </property>
+                      <property name="text">
+                       <string>ВЫКЛ</string>
+                      </property>
+                      <property name="iconSize">
+                       <size>
+                        <width>25</width>
+                        <height>25</height>
+                       </size>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <spacer name="horizontalSpacer_4">
+                      <property name="orientation">
+                       <enum>Qt::Orientation::Horizontal</enum>
+                      </property>
+                      <property name="sizeType">
+                       <enum>QSizePolicy::Policy::Expanding</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>40</width>
+                        <height>20</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
+                   </layout>
+                  </item>
+                 </layout>
+                </item>
+                <item>
+                 <layout class="QGridLayout" name="gridLayout">
+                  <item row="1" column="1">
+                   <widget class="QDoubleSpinBox" name="doubleSpinBox_27">
+                    <property name="enabled">
+                     <bool>true</bool>
+                    </property>
+                    <property name="font">
+                     <font>
+                      <pointsize>16</pointsize>
+                      <italic>false</italic>
+                      <bold>true</bold>
+                     </font>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignmentFlag::AlignCenter</set>
+                    </property>
+                    <property name="readOnly">
+                     <bool>false</bool>
+                    </property>
+                    <property name="decimals">
+                     <number>1</number>
+                    </property>
+                    <property name="maximum">
+                     <double>15.000000000000000</double>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="0">
+                   <widget class="QSpinBox" name="spinBox">
+                    <property name="font">
+                     <font>
+                      <pointsize>16</pointsize>
+                      <bold>true</bold>
+                     </font>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignmentFlag::AlignCenter</set>
+                    </property>
+                    <property name="maximum">
+                     <number>9999</number>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="2">
+                   <widget class="QLabel" name="label_43">
+                    <property name="font">
+                     <font>
+                      <pointsize>14</pointsize>
+                      <italic>true</italic>
+                     </font>
+                    </property>
+                    <property name="text">
+                     <string>Интервал, мкс</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignmentFlag::AlignCenter</set>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="1">
+                   <widget class="QPushButton" name="pushButton">
+                    <property name="enabled">
+                     <bool>false</bool>
+                    </property>
+                    <property name="font">
+                     <font>
+                      <pointsize>14</pointsize>
+                      <italic>true</italic>
+                     </font>
+                    </property>
+                    <property name="text">
+                     <string>Установить</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="0">
+                   <widget class="QLabel" name="label_41">
+                    <property name="font">
+                     <font>
+                      <pointsize>14</pointsize>
+                      <italic>true</italic>
+                     </font>
+                    </property>
+                    <property name="text">
+                     <string>Частота, ГЦ</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignmentFlag::AlignCenter</set>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="1">
+                   <widget class="QLabel" name="label_42">
+                    <property name="font">
+                     <font>
+                      <pointsize>14</pointsize>
+                      <italic>true</italic>
+                     </font>
+                    </property>
+                    <property name="text">
+                     <string>Длительность
 импульса, мкс</string>
-                   </property>
-                   <property name="alignment">
-                    <set>Qt::AlignmentFlag::AlignCenter</set>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="1" column="1">
-                  <widget class="QDoubleSpinBox" name="doubleSpinBox_27">
-                   <property name="enabled">
-                    <bool>true</bool>
-                   </property>
-                   <property name="font">
-                    <font>
-                     <pointsize>14</pointsize>
-                     <italic>false</italic>
-                     <bold>true</bold>
-                    </font>
-                   </property>
-                   <property name="alignment">
-                    <set>Qt::AlignmentFlag::AlignCenter</set>
-                   </property>
-                   <property name="readOnly">
-                    <bool>false</bool>
-                   </property>
-                   <property name="decimals">
-                    <number>1</number>
-                   </property>
-                   <property name="maximum">
-                    <double>15.000000000000000</double>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="1" column="0">
-                  <widget class="QSpinBox" name="spinBox">
-                   <property name="font">
-                    <font>
-                     <pointsize>14</pointsize>
-                     <bold>true</bold>
-                    </font>
-                   </property>
-                   <property name="alignment">
-                    <set>Qt::AlignmentFlag::AlignCenter</set>
-                   </property>
-                   <property name="maximum">
-                    <number>9999</number>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="0" column="2">
-                  <widget class="QLabel" name="label_43">
-                   <property name="font">
-                    <font>
-                     <pointsize>14</pointsize>
-                     <italic>true</italic>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>Интервал, мкс</string>
-                   </property>
-                   <property name="alignment">
-                    <set>Qt::AlignmentFlag::AlignCenter</set>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="1" column="2">
-                  <widget class="QSpinBox" name="spinBox_2">
-                   <property name="font">
-                    <font>
-                     <pointsize>14</pointsize>
-                     <bold>true</bold>
-                    </font>
-                   </property>
-                   <property name="alignment">
-                    <set>Qt::AlignmentFlag::AlignCenter</set>
-                   </property>
-                   <property name="maximum">
-                    <number>500</number>
-                   </property>
-                  </widget>
-                 </item>
-                 <item row="2" column="1">
-                  <widget class="QPushButton" name="pushButton">
-                   <property name="enabled">
-                    <bool>false</bool>
-                   </property>
-                   <property name="font">
-                    <font>
-                     <pointsize>14</pointsize>
-                     <italic>true</italic>
-                    </font>
-                   </property>
-                   <property name="text">
-                    <string>Установить</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
-               </item>
-              </layout>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignmentFlag::AlignCenter</set>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="2">
+                   <widget class="QSpinBox" name="spinBox_2">
+                    <property name="font">
+                     <font>
+                      <pointsize>16</pointsize>
+                      <bold>true</bold>
+                     </font>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignmentFlag::AlignCenter</set>
+                    </property>
+                    <property name="maximum">
+                     <number>500</number>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+               </layout>
+              </widget>
              </widget>
             </item>
             <item>
@@ -543,28 +563,11 @@
                  </item>
                  <item>
                   <layout class="QGridLayout" name="gridLayout_5">
-                   <item row="0" column="2">
-                    <widget class="QLabel" name="label_38">
+                   <item row="1" column="4">
+                    <widget class="QDoubleSpinBox" name="doubleSpinBox_4">
                      <property name="font">
                       <font>
-                       <pointsize>14</pointsize>
-                       <italic>true</italic>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string>Преобразованное
-значение, А</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignmentFlag::AlignCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="2" column="5">
-                    <widget class="QDoubleSpinBox" name="doubleSpinBox_10">
-                     <property name="font">
-                      <font>
-                       <pointsize>14</pointsize>
+                       <pointsize>16</pointsize>
                        <italic>false</italic>
                        <bold>true</bold>
                       </font>
@@ -576,44 +579,7 @@
                       <bool>true</bool>
                      </property>
                      <property name="decimals">
-                      <number>2</number>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="0" column="1">
-                    <widget class="QLabel" name="label_37">
-                     <property name="font">
-                      <font>
-                       <pointsize>14</pointsize>
-                       <italic>true</italic>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string>Настроенное
-значение, В</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignmentFlag::AlignCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="1" column="5">
-                    <widget class="QDoubleSpinBox" name="doubleSpinBox_5">
-                     <property name="font">
-                      <font>
-                       <pointsize>14</pointsize>
-                       <italic>false</italic>
-                       <bold>true</bold>
-                      </font>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignmentFlag::AlignCenter</set>
-                     </property>
-                     <property name="readOnly">
-                      <bool>true</bool>
-                     </property>
-                     <property name="decimals">
-                      <number>2</number>
+                      <number>3</number>
                      </property>
                     </widget>
                    </item>
@@ -626,8 +592,7 @@
                       </font>
                      </property>
                      <property name="text">
-                      <string>Измеренное
-значение, В</string>
+                      <string>Изм. значение, В</string>
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -650,107 +615,11 @@
                      </property>
                     </widget>
                    </item>
-                   <item row="0" column="3">
-                    <widget class="Line" name="line_6">
-                     <property name="lineWidth">
-                      <number>7</number>
-                     </property>
-                     <property name="orientation">
-                      <enum>Qt::Orientation::Vertical</enum>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="2" column="3">
-                    <widget class="Line" name="line_7">
-                     <property name="lineWidth">
-                      <number>7</number>
-                     </property>
-                     <property name="orientation">
-                      <enum>Qt::Orientation::Vertical</enum>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="2" column="4">
-                    <widget class="QDoubleSpinBox" name="doubleSpinBox_9">
-                     <property name="font">
-                      <font>
-                       <pointsize>14</pointsize>
-                       <italic>false</italic>
-                       <bold>true</bold>
-                      </font>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignmentFlag::AlignCenter</set>
-                     </property>
-                     <property name="readOnly">
-                      <bool>true</bool>
-                     </property>
-                     <property name="decimals">
-                      <number>2</number>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="2" column="0">
-                    <widget class="QLabel" name="label_35">
-                     <property name="font">
-                      <font>
-                       <pointsize>14</pointsize>
-                       <italic>true</italic>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string>Напряжение накала</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignmentFlag::AlignCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="0" column="5">
-                    <widget class="QLabel" name="label_36">
-                     <property name="font">
-                      <font>
-                       <pointsize>14</pointsize>
-                       <italic>true</italic>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string>Преобразованное
-значение, А, В</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignmentFlag::AlignCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="1" column="1">
-                    <widget class="QDoubleSpinBox" name="doubleSpinBox_1">
-                     <property name="font">
-                      <font>
-                       <pointsize>14</pointsize>
-                       <italic>false</italic>
-                       <bold>true</bold>
-                      </font>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignmentFlag::AlignCenter</set>
-                     </property>
-                     <property name="readOnly">
-                      <bool>true</bool>
-                     </property>
-                     <property name="decimals">
-                      <number>2</number>
-                     </property>
-                     <property name="singleStep">
-                      <double>1.000000000000000</double>
-                     </property>
-                    </widget>
-                   </item>
                    <item row="1" column="2">
                     <widget class="QDoubleSpinBox" name="doubleSpinBox_3">
                      <property name="font">
                       <font>
-                       <pointsize>14</pointsize>
+                       <pointsize>16</pointsize>
                        <italic>false</italic>
                        <bold>true</bold>
                       </font>
@@ -762,37 +631,7 @@
                       <bool>true</bool>
                      </property>
                      <property name="decimals">
-                      <number>2</number>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="1" column="3">
-                    <widget class="Line" name="line_8">
-                     <property name="lineWidth">
-                      <number>7</number>
-                     </property>
-                     <property name="orientation">
-                      <enum>Qt::Orientation::Vertical</enum>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="1" column="4">
-                    <widget class="QDoubleSpinBox" name="doubleSpinBox_4">
-                     <property name="font">
-                      <font>
-                       <pointsize>14</pointsize>
-                       <italic>false</italic>
-                       <bold>true</bold>
-                      </font>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignmentFlag::AlignCenter</set>
-                     </property>
-                     <property name="readOnly">
-                      <bool>true</bool>
-                     </property>
-                     <property name="decimals">
-                      <number>2</number>
+                      <number>3</number>
                      </property>
                     </widget>
                    </item>
@@ -809,6 +648,184 @@
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="2" column="0">
+                    <widget class="QLabel" name="label_35">
+                     <property name="font">
+                      <font>
+                       <pointsize>15</pointsize>
+                       <italic>true</italic>
+                      </font>
+                     </property>
+                     <property name="text">
+                      <string>Напряжение
+накала</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="1" column="5">
+                    <widget class="QDoubleSpinBox" name="doubleSpinBox_5">
+                     <property name="font">
+                      <font>
+                       <pointsize>16</pointsize>
+                       <italic>false</italic>
+                       <bold>true</bold>
+                      </font>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                     <property name="readOnly">
+                      <bool>true</bool>
+                     </property>
+                     <property name="decimals">
+                      <number>3</number>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="2" column="3">
+                    <widget class="Line" name="line_7">
+                     <property name="lineWidth">
+                      <number>7</number>
+                     </property>
+                     <property name="orientation">
+                      <enum>Qt::Orientation::Vertical</enum>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="1" column="3">
+                    <widget class="Line" name="line_8">
+                     <property name="lineWidth">
+                      <number>7</number>
+                     </property>
+                     <property name="orientation">
+                      <enum>Qt::Orientation::Vertical</enum>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="0" column="3">
+                    <widget class="Line" name="line_6">
+                     <property name="lineWidth">
+                      <number>7</number>
+                     </property>
+                     <property name="orientation">
+                      <enum>Qt::Orientation::Vertical</enum>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="1" column="1">
+                    <widget class="QDoubleSpinBox" name="doubleSpinBox_1">
+                     <property name="font">
+                      <font>
+                       <pointsize>16</pointsize>
+                       <italic>false</italic>
+                       <bold>true</bold>
+                      </font>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                     <property name="readOnly">
+                      <bool>true</bool>
+                     </property>
+                     <property name="decimals">
+                      <number>3</number>
+                     </property>
+                     <property name="singleStep">
+                      <double>1.000000000000000</double>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="0" column="1">
+                    <widget class="QLabel" name="label_37">
+                     <property name="font">
+                      <font>
+                       <pointsize>14</pointsize>
+                       <italic>true</italic>
+                      </font>
+                     </property>
+                     <property name="text">
+                      <string>Настр. значение, В</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="2" column="4">
+                    <widget class="QDoubleSpinBox" name="doubleSpinBox_9">
+                     <property name="font">
+                      <font>
+                       <pointsize>16</pointsize>
+                       <italic>false</italic>
+                       <bold>true</bold>
+                      </font>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                     <property name="readOnly">
+                      <bool>true</bool>
+                     </property>
+                     <property name="decimals">
+                      <number>3</number>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="0" column="5">
+                    <widget class="QLabel" name="label_36">
+                     <property name="font">
+                      <font>
+                       <pointsize>14</pointsize>
+                       <italic>true</italic>
+                      </font>
+                     </property>
+                     <property name="text">
+                      <string>Преобр. значение, А, В</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="0" column="2">
+                    <widget class="QLabel" name="label_38">
+                     <property name="font">
+                      <font>
+                       <pointsize>14</pointsize>
+                       <italic>true</italic>
+                      </font>
+                     </property>
+                     <property name="text">
+                      <string>Преобр.значение, А</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="2" column="5">
+                    <widget class="QDoubleSpinBox" name="doubleSpinBox_10">
+                     <property name="font">
+                      <font>
+                       <pointsize>16</pointsize>
+                       <italic>false</italic>
+                       <bold>true</bold>
+                      </font>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                     <property name="readOnly">
+                      <bool>true</bool>
+                     </property>
+                     <property name="decimals">
+                      <number>3</number>
                      </property>
                     </widget>
                    </item>
@@ -838,7 +855,7 @@
                </sizepolicy>
               </property>
               <property name="title">
-               <string>Блок управлением энергиями</string>
+               <string>Блок управления электродом</string>
               </property>
               <layout class="QVBoxLayout" name="verticalLayout_20">
                <item>
@@ -923,6 +940,26 @@
                  </item>
                  <item>
                   <layout class="QGridLayout" name="gridLayout_3">
+                   <item row="1" column="1">
+                    <widget class="QDoubleSpinBox" name="doubleSpinBox_11">
+                     <property name="font">
+                      <font>
+                       <pointsize>16</pointsize>
+                       <italic>false</italic>
+                       <bold>true</bold>
+                      </font>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                     <property name="readOnly">
+                      <bool>true</bool>
+                     </property>
+                     <property name="decimals">
+                      <number>3</number>
+                     </property>
+                    </widget>
+                   </item>
                    <item row="0" column="4">
                     <widget class="QLabel" name="label_24">
                      <property name="font">
@@ -932,36 +969,28 @@
                       </font>
                      </property>
                      <property name="text">
-                      <string>Измеренное
-значение, В</string>
+                      <string>Изм. значение, В</string>
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignmentFlag::AlignCenter</set>
                      </property>
                     </widget>
                    </item>
-                   <item row="0" column="1">
-                    <widget class="QLabel" name="label_23">
-                     <property name="font">
-                      <font>
-                       <pointsize>14</pointsize>
-                       <italic>true</italic>
-                      </font>
+                   <item row="0" column="3">
+                    <widget class="Line" name="line">
+                     <property name="lineWidth">
+                      <number>7</number>
                      </property>
-                     <property name="text">
-                      <string>Настроенное
-значение, В</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignmentFlag::AlignCenter</set>
+                     <property name="orientation">
+                      <enum>Qt::Orientation::Vertical</enum>
                      </property>
                     </widget>
                    </item>
-                   <item row="1" column="1">
-                    <widget class="QDoubleSpinBox" name="doubleSpinBox_11">
+                   <item row="2" column="4">
+                    <widget class="QDoubleSpinBox" name="doubleSpinBox_21">
                      <property name="font">
                       <font>
-                       <pointsize>14</pointsize>
+                       <pointsize>16</pointsize>
                        <italic>false</italic>
                        <bold>true</bold>
                       </font>
@@ -973,27 +1002,7 @@
                       <bool>true</bool>
                      </property>
                      <property name="decimals">
-                      <number>2</number>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="1" column="2">
-                    <widget class="QDoubleSpinBox" name="doubleSpinBox_15">
-                     <property name="font">
-                      <font>
-                       <pointsize>14</pointsize>
-                       <italic>false</italic>
-                       <bold>true</bold>
-                      </font>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignmentFlag::AlignCenter</set>
-                     </property>
-                     <property name="readOnly">
-                      <bool>true</bool>
-                     </property>
-                     <property name="decimals">
-                      <number>2</number>
+                      <number>3</number>
                      </property>
                     </widget>
                    </item>
@@ -1006,44 +1015,23 @@
                       </font>
                      </property>
                      <property name="text">
-                      <string>Преобразованное
-значение, кВ</string>
+                      <string>Преобр. значение, кВ</string>
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignmentFlag::AlignCenter</set>
                      </property>
                     </widget>
                    </item>
-                   <item row="1" column="5">
-                    <widget class="QDoubleSpinBox" name="doubleSpinBox_22">
+                   <item row="2" column="0">
+                    <widget class="QLabel" name="label_22">
                      <property name="font">
                       <font>
-                       <pointsize>14</pointsize>
-                       <italic>false</italic>
-                       <bold>true</bold>
-                      </font>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignmentFlag::AlignCenter</set>
-                     </property>
-                     <property name="readOnly">
-                      <bool>true</bool>
-                     </property>
-                     <property name="decimals">
-                      <number>2</number>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="1" column="0">
-                    <widget class="QLabel" name="label_19">
-                     <property name="font">
-                      <font>
-                       <pointsize>14</pointsize>
+                       <pointsize>15</pointsize>
                        <italic>true</italic>
                       </font>
                      </property>
                      <property name="text">
-                      <string>Напряжение ВЭ (В)</string>
+                      <string>Напряжение НЭ (В)</string>
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -1059,19 +1047,18 @@
                       </font>
                      </property>
                      <property name="text">
-                      <string>Преобразованное
-значение, кВ</string>
+                      <string>Преобр. значение, кВ</string>
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignmentFlag::AlignCenter</set>
                      </property>
                     </widget>
                    </item>
-                   <item row="2" column="5">
-                    <widget class="QDoubleSpinBox" name="doubleSpinBox_23">
+                   <item row="1" column="4">
+                    <widget class="QDoubleSpinBox" name="doubleSpinBox_17">
                      <property name="font">
                       <font>
-                       <pointsize>14</pointsize>
+                       <pointsize>16</pointsize>
                        <italic>false</italic>
                        <bold>true</bold>
                       </font>
@@ -1083,47 +1070,49 @@
                       <bool>true</bool>
                      </property>
                      <property name="decimals">
-                      <number>2</number>
+                      <number>3</number>
                      </property>
                     </widget>
                    </item>
-                   <item row="2" column="4">
-                    <widget class="QDoubleSpinBox" name="doubleSpinBox_21">
+                   <item row="2" column="3">
+                    <widget class="Line" name="line_3">
+                     <property name="lineWidth">
+                      <number>7</number>
+                     </property>
+                     <property name="orientation">
+                      <enum>Qt::Orientation::Vertical</enum>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="1" column="0">
+                    <widget class="QLabel" name="label_19">
                      <property name="font">
                       <font>
-                       <pointsize>14</pointsize>
-                       <italic>false</italic>
-                       <bold>true</bold>
+                       <pointsize>15</pointsize>
+                       <italic>true</italic>
                       </font>
+                     </property>
+                     <property name="text">
+                      <string>Напряжение ВЭ (В)</string>
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignmentFlag::AlignCenter</set>
                      </property>
-                     <property name="readOnly">
-                      <bool>true</bool>
-                     </property>
-                     <property name="decimals">
-                      <number>2</number>
-                     </property>
                     </widget>
                    </item>
-                   <item row="2" column="2">
-                    <widget class="QDoubleSpinBox" name="doubleSpinBox_18">
+                   <item row="4" column="0">
+                    <widget class="QLabel" name="label_15">
                      <property name="font">
                       <font>
-                       <pointsize>14</pointsize>
-                       <italic>false</italic>
-                       <bold>true</bold>
+                       <pointsize>15</pointsize>
+                       <italic>true</italic>
                       </font>
+                     </property>
+                     <property name="text">
+                      <string>Средняя точка #1</string>
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignmentFlag::AlignCenter</set>
-                     </property>
-                     <property name="readOnly">
-                      <bool>true</bool>
-                     </property>
-                     <property name="decimals">
-                      <number>2</number>
                      </property>
                     </widget>
                    </item>
@@ -1143,8 +1132,18 @@
                      </property>
                     </widget>
                    </item>
-                   <item row="2" column="0">
-                    <widget class="QLabel" name="label_22">
+                   <item row="1" column="3">
+                    <widget class="Line" name="line_2">
+                     <property name="lineWidth">
+                      <number>7</number>
+                     </property>
+                     <property name="orientation">
+                      <enum>Qt::Orientation::Vertical</enum>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="0" column="1">
+                    <widget class="QLabel" name="label_23">
                      <property name="font">
                       <font>
                        <pointsize>14</pointsize>
@@ -1152,37 +1151,18 @@
                       </font>
                      </property>
                      <property name="text">
-                      <string>Напряжение НЭ (В)</string>
+                      <string>Настр. значение, В</string>
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignmentFlag::AlignCenter</set>
                      </property>
                     </widget>
                    </item>
-                   <item row="2" column="1">
-                    <widget class="QDoubleSpinBox" name="doubleSpinBox_19">
+                   <item row="2" column="2">
+                    <widget class="QDoubleSpinBox" name="doubleSpinBox_18">
                      <property name="font">
                       <font>
-                       <pointsize>14</pointsize>
-                       <bold>true</bold>
-                      </font>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignmentFlag::AlignCenter</set>
-                     </property>
-                     <property name="readOnly">
-                      <bool>true</bool>
-                     </property>
-                     <property name="decimals">
-                      <number>2</number>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="1" column="4">
-                    <widget class="QDoubleSpinBox" name="doubleSpinBox_17">
-                     <property name="font">
-                      <font>
-                       <pointsize>14</pointsize>
+                       <pointsize>16</pointsize>
                        <italic>false</italic>
                        <bold>true</bold>
                       </font>
@@ -1194,37 +1174,118 @@
                       <bool>true</bool>
                      </property>
                      <property name="decimals">
-                      <number>2</number>
+                      <number>3</number>
                      </property>
                     </widget>
                    </item>
-                   <item row="0" column="3">
-                    <widget class="Line" name="line">
-                     <property name="lineWidth">
-                      <number>7</number>
+                   <item row="1" column="5">
+                    <widget class="QDoubleSpinBox" name="doubleSpinBox_22">
+                     <property name="font">
+                      <font>
+                       <pointsize>16</pointsize>
+                       <italic>false</italic>
+                       <bold>true</bold>
+                      </font>
                      </property>
-                     <property name="orientation">
-                      <enum>Qt::Orientation::Vertical</enum>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                     <property name="readOnly">
+                      <bool>true</bool>
+                     </property>
+                     <property name="decimals">
+                      <number>3</number>
                      </property>
                     </widget>
                    </item>
-                   <item row="1" column="3">
-                    <widget class="Line" name="line_2">
-                     <property name="lineWidth">
-                      <number>7</number>
+                   <item row="4" column="1">
+                    <widget class="QDoubleSpinBox" name="doubleSpinBox_2">
+                     <property name="font">
+                      <font>
+                       <pointsize>16</pointsize>
+                       <bold>true</bold>
+                      </font>
                      </property>
-                     <property name="orientation">
-                      <enum>Qt::Orientation::Vertical</enum>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                     <property name="decimals">
+                      <number>3</number>
                      </property>
                     </widget>
                    </item>
-                   <item row="2" column="3">
-                    <widget class="Line" name="line_3">
-                     <property name="lineWidth">
-                      <number>7</number>
+                   <item row="2" column="1">
+                    <widget class="QDoubleSpinBox" name="doubleSpinBox_19">
+                     <property name="font">
+                      <font>
+                       <pointsize>16</pointsize>
+                       <bold>true</bold>
+                      </font>
                      </property>
-                     <property name="orientation">
-                      <enum>Qt::Orientation::Vertical</enum>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                     <property name="readOnly">
+                      <bool>true</bool>
+                     </property>
+                     <property name="decimals">
+                      <number>3</number>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="1" column="2">
+                    <widget class="QDoubleSpinBox" name="doubleSpinBox_15">
+                     <property name="font">
+                      <font>
+                       <pointsize>16</pointsize>
+                       <italic>false</italic>
+                       <bold>true</bold>
+                      </font>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                     <property name="readOnly">
+                      <bool>true</bool>
+                     </property>
+                     <property name="decimals">
+                      <number>3</number>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="2" column="5">
+                    <widget class="QDoubleSpinBox" name="doubleSpinBox_23">
+                     <property name="font">
+                      <font>
+                       <pointsize>16</pointsize>
+                       <italic>false</italic>
+                       <bold>true</bold>
+                      </font>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                     <property name="readOnly">
+                      <bool>true</bool>
+                     </property>
+                     <property name="decimals">
+                      <number>3</number>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="3" column="1">
+                    <widget class="QLabel" name="label_17">
+                     <property name="font">
+                      <font>
+                       <pointsize>13</pointsize>
+                       <italic>true</italic>
+                      </font>
+                     </property>
+                     <property name="text">
+                      <string>Значение в точке, В</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
                      </property>
                     </widget>
                    </item>
@@ -1319,28 +1380,50 @@
                  </item>
                  <item>
                   <layout class="QGridLayout" name="gridLayout_4">
-                   <item row="1" column="5">
-                    <widget class="QDoubleSpinBox" name="doubleSpinBox_16">
+                   <item row="4" column="1">
+                    <widget class="QDoubleSpinBox" name="doubleSpinBox_6">
                      <property name="font">
                       <font>
-                       <pointsize>14</pointsize>
-                       <italic>false</italic>
+                       <pointsize>16</pointsize>
                        <bold>true</bold>
                       </font>
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignmentFlag::AlignCenter</set>
                      </property>
-                     <property name="readOnly">
-                      <bool>true</bool>
-                     </property>
                      <property name="decimals">
-                      <number>2</number>
+                      <number>3</number>
                      </property>
                     </widget>
                    </item>
-                   <item row="0" column="4">
-                    <widget class="QLabel" name="label_30">
+                   <item row="3" column="1">
+                    <widget class="QDoubleSpinBox" name="doubleSpinBox_7">
+                     <property name="font">
+                      <font>
+                       <pointsize>16</pointsize>
+                       <bold>true</bold>
+                      </font>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                     <property name="decimals">
+                      <number>3</number>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="0" column="3">
+                    <widget class="Line" name="line_4">
+                     <property name="lineWidth">
+                      <number>7</number>
+                     </property>
+                     <property name="orientation">
+                      <enum>Qt::Orientation::Vertical</enum>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="0" column="5">
+                    <widget class="QLabel" name="label_31">
                      <property name="font">
                       <font>
                        <pointsize>14</pointsize>
@@ -1348,8 +1431,7 @@
                       </font>
                      </property>
                      <property name="text">
-                      <string>Измеренное
-значение, В</string>
+                      <string>Преобр. значение, кВ</string>
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -1372,27 +1454,11 @@
                      </property>
                     </widget>
                    </item>
-                   <item row="1" column="0">
-                    <widget class="QLabel" name="label_27">
+                   <item row="1" column="5">
+                    <widget class="QDoubleSpinBox" name="doubleSpinBox_16">
                      <property name="font">
                       <font>
-                       <pointsize>14</pointsize>
-                       <italic>true</italic>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string>Напряжение катода</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignmentFlag::AlignCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="1" column="4">
-                    <widget class="QDoubleSpinBox" name="doubleSpinBox_26">
-                     <property name="font">
-                      <font>
-                       <pointsize>14</pointsize>
+                       <pointsize>16</pointsize>
                        <italic>false</italic>
                        <bold>true</bold>
                       </font>
@@ -1404,38 +1470,61 @@
                       <bool>true</bool>
                      </property>
                      <property name="decimals">
-                      <number>2</number>
+                      <number>3</number>
                      </property>
                     </widget>
                    </item>
-                   <item row="0" column="5">
-                    <widget class="QLabel" name="label_31">
+                   <item row="1" column="1">
+                    <widget class="QDoubleSpinBox" name="doubleSpinBox_24">
                      <property name="font">
                       <font>
-                       <pointsize>14</pointsize>
-                       <italic>true</italic>
+                       <pointsize>16</pointsize>
+                       <italic>false</italic>
+                       <bold>true</bold>
                       </font>
-                     </property>
-                     <property name="text">
-                      <string>Преобразованное
-значение, кВ</string>
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignmentFlag::AlignCenter</set>
                      </property>
+                     <property name="readOnly">
+                      <bool>true</bool>
+                     </property>
+                     <property name="decimals">
+                      <number>3</number>
+                     </property>
                     </widget>
                    </item>
-                   <item row="0" column="1">
-                    <widget class="QLabel" name="label_29">
+                   <item row="1" column="2">
+                    <widget class="QDoubleSpinBox" name="doubleSpinBox_25">
                      <property name="font">
                       <font>
-                       <pointsize>14</pointsize>
+                       <pointsize>16</pointsize>
+                       <italic>false</italic>
+                       <bold>true</bold>
+                      </font>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                     <property name="readOnly">
+                      <bool>true</bool>
+                     </property>
+                     <property name="decimals">
+                      <number>3</number>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="1" column="0">
+                    <widget class="QLabel" name="label_27">
+                     <property name="font">
+                      <font>
+                       <pointsize>15</pointsize>
                        <italic>true</italic>
                       </font>
                      </property>
                      <property name="text">
-                      <string>Настроенное
-значение, В</string>
+                      <string>Напряжение
+катода</string>
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -1451,19 +1540,18 @@
                       </font>
                      </property>
                      <property name="text">
-                      <string>Преобразованное
-значение, кВ</string>
+                      <string>Преобр. значение, кВ</string>
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignmentFlag::AlignCenter</set>
                      </property>
                     </widget>
                    </item>
-                   <item row="1" column="1">
-                    <widget class="QDoubleSpinBox" name="doubleSpinBox_24">
+                   <item row="1" column="4">
+                    <widget class="QDoubleSpinBox" name="doubleSpinBox_26">
                      <property name="font">
                       <font>
-                       <pointsize>14</pointsize>
+                       <pointsize>16</pointsize>
                        <italic>false</italic>
                        <bold>true</bold>
                       </font>
@@ -1475,37 +1563,71 @@
                       <bool>true</bool>
                      </property>
                      <property name="decimals">
-                      <number>2</number>
+                      <number>3</number>
                      </property>
                     </widget>
                    </item>
-                   <item row="1" column="2">
-                    <widget class="QDoubleSpinBox" name="doubleSpinBox_25">
+                   <item row="0" column="4">
+                    <widget class="QLabel" name="label_30">
                      <property name="font">
                       <font>
                        <pointsize>14</pointsize>
-                       <italic>false</italic>
-                       <bold>true</bold>
+                       <italic>true</italic>
                       </font>
+                     </property>
+                     <property name="text">
+                      <string>Измер. значение, В</string>
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignmentFlag::AlignCenter</set>
                      </property>
-                     <property name="readOnly">
-                      <bool>true</bool>
+                    </widget>
+                   </item>
+                   <item row="4" column="0">
+                    <widget class="QLabel" name="label_16">
+                     <property name="font">
+                      <font>
+                       <pointsize>15</pointsize>
+                       <italic>true</italic>
+                      </font>
                      </property>
-                     <property name="decimals">
-                      <number>2</number>
+                     <property name="text">
+                      <string>Средняя точка #2</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
                      </property>
                     </widget>
                    </item>
-                   <item row="0" column="3">
-                    <widget class="Line" name="line_4">
-                     <property name="lineWidth">
-                      <number>7</number>
+                   <item row="3" column="0">
+                    <widget class="QLabel" name="label_18">
+                     <property name="font">
+                      <font>
+                       <pointsize>15</pointsize>
+                       <italic>true</italic>
+                      </font>
                      </property>
-                     <property name="orientation">
-                      <enum>Qt::Orientation::Vertical</enum>
+                     <property name="text">
+                      <string>Средняя точка #1</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="0" column="1">
+                    <widget class="QLabel" name="label_29">
+                     <property name="font">
+                      <font>
+                       <pointsize>14</pointsize>
+                       <italic>true</italic>
+                      </font>
+                     </property>
+                     <property name="text">
+                      <string>Настр. значение, В</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
                      </property>
                     </widget>
                    </item>
@@ -1519,6 +1641,22 @@
                      </property>
                     </widget>
                    </item>
+                   <item row="2" column="1">
+                    <widget class="QLabel" name="label_46">
+                     <property name="font">
+                      <font>
+                       <pointsize>13</pointsize>
+                       <italic>true</italic>
+                      </font>
+                     </property>
+                     <property name="text">
+                      <string>Значение в точке, В</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                    </widget>
+                   </item>
                   </layout>
                  </item>
                 </layout>
@@ -1527,6 +1665,11 @@
              </widget>
             </item>
            </layout>
+           <zorder>groupBox_4</zorder>
+           <zorder>groupBox_2</zorder>
+           <zorder>groupBox_3</zorder>
+           <zorder>line_9</zorder>
+           <zorder>section_2</zorder>
           </widget>
          </widget>
         </item>
@@ -1591,10 +1734,10 @@
           <widget class="QWidget" name="widget_6" native="true">
            <property name="geometry">
             <rect>
-             <x>950</x>
-             <y>150</y>
-             <width>16</width>
-             <height>16</height>
+             <x>946</x>
+             <y>135</y>
+             <width>20</width>
+             <height>31</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_6">
@@ -1750,6 +1893,19 @@
               </item>
              </layout>
             </item>
+            <item row="2" column="2">
+             <widget class="QPushButton" name="pushButton_6">
+              <property name="font">
+               <font>
+                <pointsize>13</pointsize>
+                <italic>true</italic>
+               </font>
+              </property>
+              <property name="text">
+               <string>Очистить</string>
+              </property>
+             </widget>
+            </item>
            </layout>
           </widget>
          </widget>
@@ -1884,57 +2040,10 @@ QSlider::handle:horizontal {
             </item>
            </layout>
           </item>
-          <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_6">
-            <item>
-             <widget class="QPushButton" name="pushButton_4">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>12</pointsize>
-                <italic>true</italic>
-               </font>
-              </property>
-              <property name="text">
-               <string>Получить среднее
-в точке</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <spacer name="horizontalSpacer_10">
-              <property name="orientation">
-               <enum>Qt::Orientation::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>40</width>
-                <height>20</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-           </layout>
-          </item>
          </layout>
         </item>
        </layout>
       </widget>
-     </widget>
-    </item>
-    <item>
-     <widget class="QPushButton" name="button_connect">
-      <property name="font">
-       <font>
-        <pointsize>15</pointsize>
-        <italic>true</italic>
-       </font>
-      </property>
-      <property name="text">
-       <string>Подключить</string>
-      </property>
      </widget>
     </item>
    </layout>

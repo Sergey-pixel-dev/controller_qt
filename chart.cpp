@@ -32,6 +32,7 @@ Chart::Chart(QSlider *sl)
     average_series = new QLineSeries();
     average_series->setPointsVisible(true);
     average_series->setPointLabelsVisible(true);
+    series->setPointLabelsClipping(false);
     average_series->setMarkerSize(7.5);
     chart->addSeries(average_series);
     average_series->attachAxis(axisX);
@@ -71,7 +72,6 @@ void Chart::DrawAverage(QPointF average_point)
     series->setPointLabelsFormat(label);
     single_point[0] = average_point;
     average_series->replace(single_point);
-    //chart->update();
 }
 
 QChart *Chart::GetChart()

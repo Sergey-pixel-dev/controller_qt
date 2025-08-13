@@ -5,6 +5,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
+    StateADC = false;
     ui->setupUi(this);
     my_core = new core();
     my_core->conn_params = new conn_struct{.type = 1,
@@ -29,8 +30,13 @@ MainWindow::MainWindow(QWidget *parent)
 
     msgBox = new QMessageBox();
 
+    ui->scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
+
     ui->section->setContentLayout(ui->widget_6->layout());
-    ui->section->setTitle("Параметры");
+    ui->section->setTitle("Параметры оцифровки");
+
+    ui->section_2->setContentLayout(ui->widget_8->layout());
+    ui->section_2->setTitle("Параметры управляющих сигналов");
 
     ui->comboBox->addItem(QString("ДМ25-400"));
     ui->comboBox->addItem(QString("ДМ25-401"));
@@ -122,9 +128,7 @@ void MainWindow::HasBeenConnected()
         ui->pushButton->setEnabled(true);
         ui->checkBox->setEnabled(true);
         ui->pushButton_2->setEnabled(true);
-        ui->pushButton_4->setEnabled(true);
         ui->label_4->setText("Соединение установлено");
-        //ui->checkBox_2->setEnabled(true);
     } else {
         showErrMsgBox("Ошибка подключения", "Данные не были получены.");
     }
@@ -144,7 +148,6 @@ void MainWindow::HasBeenDisconnected()
     ui->checkBox->setCheckState(signal_str.IsEnabled ? Qt::Checked : Qt::Unchecked);
 
     ui->pushButton_2->setEnabled(false);
-    ui->pushButton_4->setEnabled(false);
     ui->pushButton->setEnabled(false);
     ui->checkBox->setEnabled(false);
     ui->label_4->setText("Соединение отсутствует");
@@ -314,26 +317,10 @@ void MainWindow::on_pushButton_2_clicked()
         showErrMsgBox("Ошибка подключения", "Устройство отключено.");
         return;
     }
-    if (!StateADC) {
-        StateADC = true;
-        abortFlag.store(false);
-
-        if (my_core->StartADCBytes(ui->comboBox_2->currentIndex() + 1) != 1) {
-            showErrMsgBox("Ошибка подключения", "Устройство отключено.");
-            return;
-        }
-
-        adcThread = std::thread(&MainWindow::adcThreadLoop, this);
-        ui->pushButton_2->setText("СТОП");
-        return;
-    }
-    ui->pushButton_2->setText("Останавливается...");
-    ui->pushButton_2->setEnabled(false);
-    QApplication::processEvents();
-    abortFlag.store(true);
-    if (adcThread.joinable()) {
-        adcThread.join();
-    }
+    if (!StateADC)
+        adcThreadStart();
+    else
+        adcThreadStop();
 }
 
 void MainWindow::on_pushButton_3_clicked()
@@ -378,12 +365,6 @@ void MainWindow::on_doubleSpinBox_valueChanged(double arg1)
         ui->horizontalSlider->setValue(i_offset);
     }
 }
-
-void MainWindow::on_pushButton_4_clicked()
-{
-    
-}
-
 void MainWindow::on_horizontalSlider_valueChanged(int value)
 {
     uint16_t i_offset = value;
@@ -430,6 +411,10 @@ void MainWindow::on_pushButton_5_clicked() {}
 
 void MainWindow::on_comboBox_6_currentIndexChanged(int index)
 {
+    bool wasRunning = StateADC;
+
+    if (wasRunning)
+        adcThreadStop();
     switch (index) {
     case 0:
         n_samples = 8;
@@ -446,11 +431,19 @@ void MainWindow::on_comboBox_6_currentIndexChanged(int index)
         my_chart->axisX->setRange(0, 9);
         n_samples = 24;
     }
+    if (wasRunning) {
+        adcThreadStart();
+    }
 }
 
 void MainWindow::on_comboBox_4_currentIndexChanged(int index)
 {
+    bool tmp = StateADC;
+    if (tmp)
+        adcThreadStop();
     averaging = pow(4, index);
+    if (tmp)
+        adcThreadStart();
 }
 
 void MainWindow::on_comboBox_7_currentIndexChanged(int index)
@@ -485,14 +478,15 @@ void MainWindow::adcThreadLoop()
 {
     uint8_t *buffer = new uint8_t[2 * ADC_FRAME_N * n_samples * averaging];
     int res = 1;
-    auto task = std::bind(&MainWindow::handleThreadResult, this, buffer);
+    auto task = std::bind(&MainWindow::handleThreadResult, this);
     while (!abortFlag.load()) {
+        const int current_n_samples = n_samples;
         for (int i = 0; i < averaging && res == 1; i++) {
             res = my_core->GetADCBytes(buffer + i * 2 * ADC_FRAME_N * n_samples);
         }
         if (res == 1) {
             processor->setData(buffer, 2 * ADC_FRAME_N * n_samples * averaging);
-            processor->RawDataToData();
+            processor->RawDataToData(current_n_samples);
             switch (ui->comboBox_2->currentIndex()) {
             case 0:
                 my_core->energy_block.impulse
@@ -516,20 +510,14 @@ void MainWindow::adcThreadLoop()
             emit requestChartUpdate(processor->GetPoints());
         }
     }
-    QMetaObject::invokeMethod(this, task, Qt::QueuedConnection);
-}
-
-void MainWindow::handleThreadResult(uint8_t *buffer)
-{
+    delete[] buffer;
     if (my_core->StopADCBytes() == 1) {
-        delete[] buffer;
         StateADC = false;
-        if (ui->pushButton_2) {
-            ui->pushButton_2->setEnabled(true);
-            ui->pushButton_2->setText("СТАРТ");
-        }
+        QMetaObject::invokeMethod(this, task, Qt::QueuedConnection);
     }
 }
+
+void MainWindow::handleThreadResult() {}
 
 void MainWindow::updateChart(QVector<QPointF> points)
 {
@@ -553,4 +541,46 @@ void MainWindow::updateChart(QVector<QPointF> points)
             break;
         }
     }
+}
+
+void MainWindow::adcThreadStop()
+{
+    ui->pushButton_2->setText("Останавливается...");
+    ui->pushButton_2->setEnabled(false);
+    QApplication::processEvents();
+    abortFlag.store(true);
+    if (adcThread.joinable()) {
+        adcThread.join();
+        StateADC = false;
+    }
+    ui->pushButton_2->setEnabled(true);
+    ui->pushButton_2->setText("СТАРТ");
+}
+
+void MainWindow::adcThreadStart()
+{
+    StateADC = true;
+    abortFlag.store(false);
+    my_core->sport.flushReceiver();
+    if (my_core->StartADCBytes(ui->comboBox_2->currentIndex() + 1) != 1) {
+        showErrMsgBox("Ошибка подключения", "Устройство отключено.");
+        return;
+    }
+
+    adcThread = std::thread(&MainWindow::adcThreadLoop, this);
+    ui->pushButton_2->setText("СТОП");
+}
+
+void MainWindow::on_pushButton_6_clicked()
+{
+    my_core->energy_block.impulse = 0;
+    my_core->cathode_block.impulse_i = 0;
+    my_core->cathode_block.impulse_u = 0;
+    if (StateADC) {
+        adcThreadStop();
+        processor->ClearData();
+        adcThreadStart();
+    } else
+        processor->ClearData();
+    emit requestChartUpdate(processor->GetPoints());
 }

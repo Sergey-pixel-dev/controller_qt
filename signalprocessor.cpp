@@ -26,7 +26,7 @@ QVector<QPointF> SignalProcessor::GetPoints() const
     return points;
 }
 
-void SignalProcessor::RawDataToData()
+void SignalProcessor::RawDataToData(int n_samples)
 {
     uint16_t out = 0;
     uint16_t size = raw_size / 2 / averaging;
@@ -51,6 +51,14 @@ void SignalProcessor::RawDataToData()
     }
     data = origin_data;
     time = origin_time;
+}
+
+void SignalProcessor::ClearData()
+{
+    //origin_data.clear();
+    //origin_time.clear();
+    data.clear();
+    time.clear();
 }
 void SignalProcessor::ThresholdFilter()
 {

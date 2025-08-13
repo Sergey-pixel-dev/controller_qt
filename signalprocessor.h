@@ -13,7 +13,9 @@ public:
     void setData(uint8_t *data, int size);
 
     QVector<QPointF> GetPoints() const;
-    void RawDataToData();
+    void RawDataToData(int n_samples);
+
+    void ClearData();
 
     //Фильтры
     void ThresholdFilter();

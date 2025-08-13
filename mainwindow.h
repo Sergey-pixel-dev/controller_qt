@@ -40,8 +40,6 @@ private slots:
 
     void on_doubleSpinBox_valueChanged(double arg1);
 
-    void on_pushButton_4_clicked();
-
     void on_horizontalSlider_valueChanged(int value);
     void on_doubleSpinBox_editingFinished();
     void on_pushButton_5_clicked();
@@ -50,9 +48,12 @@ private slots:
     void on_comboBox_7_currentIndexChanged(int index);
 
     void adcThreadLoop();
-    void handleThreadResult(uint8_t *buffer);
-
+    void handleThreadResult();
     void updateChart(QVector<QPointF> points);
+    void adcThreadStop();
+    void adcThreadStart();
+    void on_pushButton_6_clicked();
+
 signals:
     void requestChartUpdate(QVector<QPointF> points);
 
