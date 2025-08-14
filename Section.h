@@ -41,6 +41,7 @@ private:
     int animationDuration;
     int collapsedHeight;
     bool isExpanded = false;
+    bool isDisabled = false;
 
 public slots:
     void toggle(bool collapsed);
@@ -61,6 +62,8 @@ public:
 
     // update animations and their heights
     void updateHeights();
+
+    void SetDisable(bool isDisable);
 };
 
 #endif // SECTION_H

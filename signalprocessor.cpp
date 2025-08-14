@@ -1,9 +1,11 @@
 #include "signalprocessor.h"
-#include "core.h"
 SignalProcessor::SignalProcessor()
 {
     raw_size = 0;
     raw_data = NULL;
+    FIR_Filt_par.IsActive = false;
+    MovAvrFil_par.IsActive = false;
+    ThresholdFIl_par.IsActive = false;
 }
 SignalProcessor::~SignalProcessor()
 {
@@ -16,17 +18,23 @@ void SignalProcessor::setData(uint8_t *data, int size)
     raw_size = size;
 }
 
-QVector<QPointF> SignalProcessor::GetPoints() const
+QVector<QPointF> SignalProcessor::GetPoints()
 {
     QVector<QPointF> points;
     points.resize(data.size());
+    if (ThresholdFIl_par.IsActive)
+        ThresholdFilter();
+    if (FIR_Filt_par.IsActive)
+        FIR_Filter();
+    if (MovAvrFil_par.IsActive)
+        MovingAverageFilter();
     for (int i = 0; i < data.size(); i++) {
         points[i] = QPointF(time[i] / 1000.0, data[i]);
     }
     return points;
 }
 
-void SignalProcessor::RawDataToData(int n_samples)
+void SignalProcessor::RawDataToData(int n_samples, int averaging)
 {
     uint16_t out = 0;
     uint16_t size = raw_size / 2 / averaging;
@@ -60,6 +68,24 @@ void SignalProcessor::ClearData()
     data.clear();
     time.clear();
 }
+
+void SignalProcessor::SetFIR_Filter(bool IsSet, int N)
+{
+    FIR_Filt_par.N = N;
+    FIR_Filt_par.IsActive = IsSet;
+}
+
+void SignalProcessor::SetThresholdFilter(bool IsSet, int threshold)
+{
+    ThresholdFIl_par.threshold = threshold;
+    ThresholdFIl_par.IsActive = IsSet;
+}
+
+void SignalProcessor::SetMovingAverageFilter(bool IsSet, int windowSize)
+{
+    MovAvrFil_par.windowSize = windowSize;
+    MovAvrFil_par.IsActive = IsSet;
+}
 void SignalProcessor::ThresholdFilter()
 {
     QVector<uint16_t> newData;
@@ -69,7 +95,7 @@ void SignalProcessor::ThresholdFilter()
     for (int i = 0; i < origin_data.size() - 1; i++) {
         newData.append(origin_data[i]);
         newTime.append(origin_time[i]);
-        if (abs(origin_data[i] - origin_data[i + 1]) > 1000)
+        if (abs(origin_data[i] - origin_data[i + 1]) > ThresholdFIl_par.threshold)
             i++; //data[i] добавляем, а data[i+1] пропускаем
     }
     data.swap(newData);
@@ -78,15 +104,15 @@ void SignalProcessor::ThresholdFilter()
 
 void SignalProcessor::FIR_Filter()
 {
-    const int N = 101;                                            // нечётное число коэффициентов
+    int N = FIR_Filt_par.N;                                       // нечётное число коэффициентов
     const long double Fd = (STM32_TIM_FREQ / STM32_TIM_N) * 1e6L; // Гц, частота дискретизации
 
     const long double Fs = 5e6L;          // Гц, частота полосы пропускания
-    const long double Fx = Fs + 0.05445L; // Гц, частота начала полосы затухания
+    const long double Fx = Fs + 5.5L / N; // Гц, частота начала полосы затухания
 
-    long double H[N] = {0};    // итоговые коэффициенты
-    long double H_id[N] = {0}; // идеальная (несмещённая) импульсная характеристика
-    long double W[N] = {0};    // окно Блэкмана
+    long double *H = new long double[N];    // итоговые коэффициенты
+    long double *H_id = new long double[N]; // идеальная (несмещённая) импульсная характеристика
+    long double *W = new long double[N];    // окно Блэкмана
 
     // нормированная частота среза (в единицах от Fd)
     const long double Fc = ((Fs + Fx) / 2.0L) / Fd;
@@ -131,11 +157,14 @@ void SignalProcessor::FIR_Filter()
             newData[i] = static_cast<uint16_t>(acc);
     }
     data.swap(newData);
+    delete[] H;
+    delete[] H_id;
+    delete[] W;
 }
-void SignalProcessor::MovingAverageFilter(int windowSize)
+void SignalProcessor::MovingAverageFilter()
 {
     int n = origin_data.size();
-    if (windowSize <= 1 || windowSize > n) {
+    if (MovAvrFil_par.windowSize <= 1 || MovAvrFil_par.windowSize > n) {
         return;
     }
     int sum = 0.0;
@@ -143,15 +172,9 @@ void SignalProcessor::MovingAverageFilter(int windowSize)
     newData.resize(origin_data.size());
     for (int i = 0; i < n; ++i) {
         sum += origin_data[i];
-        if (i >= windowSize)
-            sum -= origin_data[i - windowSize];
-        newData[i] = sum / qMin(i + 1, windowSize);
+        if (i >= MovAvrFil_par.windowSize)
+            sum -= origin_data[i - MovAvrFil_par.windowSize];
+        newData[i] = sum / qMin(i + 1, MovAvrFil_par.windowSize);
     }
     data.swap(newData);
-}
-
-void SignalProcessor::NoneFilter()
-{
-    data = origin_data;
-    time = origin_time;
 }

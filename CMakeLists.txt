@@ -48,6 +48,9 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         chart.h chart.cpp
         mychartview.h mychartview.cpp
         Section.h Section.cpp
+        common_macro.h
+
+
 
     )
 # Define target properties for Android with Qt 6 as:

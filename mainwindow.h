@@ -4,9 +4,12 @@
 #include <QMessageBox>
 #include <QMouseEvent>
 #include <QSerialPortInfo>
+#include <QThread>
 #include <QTimer>
 #include "chart.h"
+#include "common_macro.h"
 #include "core.h"
+#include "signalprocessor.h"
 #include <thread>
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -53,6 +56,8 @@ private slots:
     void adcThreadStop();
     void adcThreadStart();
     void on_pushButton_6_clicked();
+
+    void on_comboBox_2_currentIndexChanged(int index);
 
 signals:
     void requestChartUpdate(QVector<QPointF> points);

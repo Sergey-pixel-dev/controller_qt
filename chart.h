@@ -1,6 +1,5 @@
 #ifndef CHART_H
 #define CHART_H
-#include <QRandomGenerator>
 #include <QSlider>
 #include <QVector>
 #include <QtCharts/QChart>
@@ -8,7 +7,6 @@
 #include <QtCharts/QScatterSeries>
 #include <QtCharts/QSplineSeries>
 #include <QtCharts/QValueAxis>
-#include "signalprocessor.h"
 class Chart : public QChart
 {
 public:

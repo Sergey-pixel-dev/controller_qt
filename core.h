@@ -1,25 +1,9 @@
 #ifndef CORE_H
 #define CORE_H
-#define STM32_ADC_FREQ 36 //частота ацп
-#define STM32_CYCL_ADC 13 //циклов на оциффровку
-#define ADC_FRAME_N 26    //кол-во стробоскопических замеров (кадров)
-#define ADC_SAMPLES 25    //кол-во выборок в одном стробоскопическом замере
-#define STM32_TIM_FREQ 72 //частота таймера
-#define STM32_TIM_N 1     //на сколько отсчетов таймера будет сделан новый замер
-
-//команды
-#define OP_MODBUS 0x10  //slave-id
-#define OP_ADC_START 0x01 //оцифровка
-#define OP_AVERAGE 0x02 //среднее
-#define OP_ADC_STOP 0x03
-
+#include "common_macro.h"
 #include "qtmodbus.h"
 #include "serialib.h"
-
 //оцифровка:
-extern int n_samples;
-extern int averaging;
-
 enum STATUS_ENUM {
     DISCONNECTED,
     CONNECTED_MODBUS,
@@ -132,9 +116,6 @@ public:
     int StartADCBytes(int channel);
     int GetADCBytes(uint8_t *buffer);
     int StopADCBytes();
-    uint16_t GetADCAverage();
-    int StartADCAverage(int channel, int i_offset);
-
     serialib sport; //в стеке потому что в динам памяти connectDevie -> fd = open падает с segm fault
 
     //может нужен указатель на heater_block
@@ -143,6 +124,9 @@ public:
     cathode_block_struct cathode_block;
     enum_model current_model;
     coef_struct coef;
+
+    int n_samples;
+    int averaging;
 
     core();
     ~core();

@@ -1,14 +1,13 @@
 #include "core.h"
 
-int n_samples = ADC_SAMPLES;
-int averaging = 1;
-
 core::core()
 {
     modbus = NULL;
     status = DISCONNECTED;
     conn_params = NULL;
     current_model = DM25_400;
+    int n_samples = ADC_SAMPLES;
+    int averaging = 1;
     fill_std_values();
     fill_coef();
 }
@@ -280,29 +279,4 @@ int core::StopADCBytes()
         return sport.writeBytes(&buf, 1);
     }
     return -1;
-}
-
-uint16_t core::GetADCAverage()
-{
-    if (status == CONNECTED_SPORT) {
-        uint8_t buf[2];
-        uint16_t average;
-        sport.readBytes(buf, 2, 5000, 1000);
-        average = (buf[0] | buf[1] << 8);
-        return average;
-    }
-    return 0;
-}
-
-int core::StartADCAverage(int channel, int i_offset)
-{
-    if (status == CONNECTED_SPORT) {
-        uint8_t buf[4];
-        buf[0] = OP_AVERAGE;
-        buf[1] = channel;
-        buf[2] = i_offset & 0xFF;
-        buf[3] = (i_offset >> 8) & 0xFF;
-        return sport.writeBytes(buf, 4);
-    }
-    return 0;
 }

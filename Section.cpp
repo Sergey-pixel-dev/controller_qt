@@ -21,7 +21,6 @@
 #include <QPropertyAnimation>
 
 #include "Section.h"
-#include <QDebug>
 
 Section::Section(QWidget *parent, const QString &title, const int animationDuration)
     : QWidget(parent)
@@ -69,13 +68,15 @@ Section::Section(QWidget *parent, const QString &title, const int animationDurat
 
     void Section::toggle(bool expanded)
     {
-        toggleButton->setArrowType(expanded ? Qt::ArrowType::DownArrow : Qt::ArrowType::RightArrow);
-        toggleAnimation->setDirection(expanded ? QAbstractAnimation::Forward : QAbstractAnimation::Backward);
-        toggleAnimation->start();
-        
-        this->isExpanded = expanded;
-        
-        qDebug() << "MV: toggle: isExpanded " << isExpanded;
+        if (isExpanded != expanded) {
+            toggleButton->setArrowType(expanded ? Qt::ArrowType::DownArrow
+                                                : Qt::ArrowType::RightArrow);
+            toggleAnimation->setDirection(expanded ? QAbstractAnimation::Forward
+                                                   : QAbstractAnimation::Backward);
+            toggleAnimation->start();
+
+            this->isExpanded = expanded;
+        }
     }
 
     void Section::setContentLayout(QLayout *contentLayout)
@@ -94,21 +95,31 @@ Section::Section(QWidget *parent, const QString &title, const int animationDurat
     
     void Section::updateHeights()
     {
-        int contentHeight = contentArea->layout()->sizeHint().height();
+        if (!isDisabled) {
+            int contentHeight = contentArea->layout()->sizeHint().height();
 
-        for (int i = 0; i < toggleAnimation->animationCount() - 1; ++i)
-        {
-            QPropertyAnimation* SectionAnimation = static_cast<QPropertyAnimation *>(toggleAnimation->animationAt(i));
-            SectionAnimation->setDuration(animationDuration);
-            SectionAnimation->setStartValue(collapsedHeight);
-            SectionAnimation->setEndValue(collapsedHeight + contentHeight);
+            for (int i = 0; i < toggleAnimation->animationCount() - 1; ++i) {
+                QPropertyAnimation *SectionAnimation = static_cast<QPropertyAnimation *>(
+                    toggleAnimation->animationAt(i));
+                SectionAnimation->setDuration(animationDuration);
+                SectionAnimation->setStartValue(collapsedHeight);
+                SectionAnimation->setEndValue(collapsedHeight + contentHeight);
+            }
+
+            QPropertyAnimation *contentAnimation = static_cast<QPropertyAnimation *>(
+                toggleAnimation->animationAt(toggleAnimation->animationCount() - 1));
+            contentAnimation->setDuration(animationDuration);
+            contentAnimation->setStartValue(0);
+            contentAnimation->setEndValue(contentHeight);
+
+            toggleAnimation->setDirection(isExpanded ? QAbstractAnimation::Forward
+                                                     : QAbstractAnimation::Backward);
+            toggleAnimation->start();
         }
+    }
 
-        QPropertyAnimation* contentAnimation = static_cast<QPropertyAnimation *>(toggleAnimation->animationAt(toggleAnimation->animationCount() - 1));
-        contentAnimation->setDuration(animationDuration);
-        contentAnimation->setStartValue(0);
-        contentAnimation->setEndValue(contentHeight);
-        
-        toggleAnimation->setDirection(isExpanded ? QAbstractAnimation::Forward : QAbstractAnimation::Backward);
-        toggleAnimation->start();
+    void Section::SetDisable(bool isDisable)
+    {
+        this->isDisabled = isDisable;
+        toggleButton->setDisabled(isDisable);
     }

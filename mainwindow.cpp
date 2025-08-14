@@ -111,6 +111,8 @@ void MainWindow::on_button_connect_clicked()
         HasBeenDisconnected();
         ui->button_connect->setText("Подключить");
     } else if (my_core->status == CONNECTED_SPORT) {
+        if (StateADC)
+            adcThreadStop();
         my_core->close_sprot();
         HasBeenDisconnected();
         ui->button_connect->setText("Подключить");
@@ -136,11 +138,11 @@ void MainWindow::HasBeenConnected()
 }
 
 void MainWindow::HasBeenDisconnected()
-{    
+{
     timer->stop();
     my_core->fill_std_values();
     UpdateScreenValues();
-
+    QApplication::processEvents();
     start_signal_struct signal_str = my_core->GetSignals();
     ui->spinBox->setValue(signal_str.frequency);
     ui->doubleSpinBox_27->setValue(signal_str.duration / 10.0);
@@ -317,10 +319,14 @@ void MainWindow::on_pushButton_2_clicked()
         showErrMsgBox("Ошибка подключения", "Устройство отключено.");
         return;
     }
-    if (!StateADC)
+    if (!StateADC) {
+        ui->section->toggle(false);
+        ui->section->SetDisable(true);
         adcThreadStart();
-    else
+    } else {
         adcThreadStop();
+        ui->section->SetDisable(false);
+    }
 }
 
 void MainWindow::on_pushButton_3_clicked()
@@ -396,14 +402,9 @@ void MainWindow::on_doubleSpinBox_editingFinished()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    // Сигналим потоку, что пора закончить
     abortFlag = true;
-
-    // Ждём, пока он корректно завершится
     if (adcThread.joinable())
         adcThread.join();
-
-    // После этого можно смело закрываться
     event->accept();
 }
 
@@ -417,19 +418,19 @@ void MainWindow::on_comboBox_6_currentIndexChanged(int index)
         adcThreadStop();
     switch (index) {
     case 0:
-        n_samples = 8;
+        my_core->n_samples = 8;
         my_chart->axisX->setRange(0, 3);
 
         break;
     case 1:
-        n_samples = 16;
+        my_core->n_samples = 16;
         my_chart->axisX->setRange(0, 6);
 
         break;
     case 2:
     default:
         my_chart->axisX->setRange(0, 9);
-        n_samples = 24;
+        my_core->n_samples = 24;
     }
     if (wasRunning) {
         adcThreadStart();
@@ -438,11 +439,11 @@ void MainWindow::on_comboBox_6_currentIndexChanged(int index)
 
 void MainWindow::on_comboBox_4_currentIndexChanged(int index)
 {
-    bool tmp = StateADC;
-    if (tmp)
+    bool wasRunning = StateADC;
+    if (wasRunning)
         adcThreadStop();
-    averaging = pow(4, index);
-    if (tmp)
+    my_core->averaging = pow(4, index);
+    if (wasRunning)
         adcThreadStart();
 }
 
@@ -450,43 +451,37 @@ void MainWindow::on_comboBox_7_currentIndexChanged(int index)
 {
     switch (index) {
     case 0:
-        processor->NoneFilter();
+        processor->SetMovingAverageFilter(false, 3);
+        processor->SetFIR_Filter(false, 101);
         break;
     case 1:
-        processor->MovingAverageFilter(3);
+        processor->SetMovingAverageFilter(true, 3);
+        processor->SetFIR_Filter(false, 101);
+
         break;
     case 2:
-        processor->FIR_Filter();
+        processor->SetMovingAverageFilter(false, 3);
+        processor->SetFIR_Filter(true, 101);
         break;
     }
-    // switch (n_samples) {
-    // case 8:
-    //     my_chart->axisX->setRange(0, 3);
-    //     break;
-    // case 16:
-    //     my_chart->axisX->setRange(0, 6);
-    //     break;
-    // case 24:
-    // default:
-    //     my_chart->axisX->setRange(0, 9);
-    // }
-    // my_chart->axisY->setRange(0, 3350);
-    //my_chart->DrawChart(processor->GetPoints());
 }
 
 void MainWindow::adcThreadLoop()
 {
-    uint8_t *buffer = new uint8_t[2 * ADC_FRAME_N * n_samples * averaging];
+    const int current_n_samples = my_core->n_samples;
+    const int current_n_averaging = my_core->averaging;
+    uint8_t *buffer = new uint8_t[2 * ADC_FRAME_N * current_n_samples * current_n_averaging];
     int res = 1;
     auto task = std::bind(&MainWindow::handleThreadResult, this);
+
     while (!abortFlag.load()) {
-        const int current_n_samples = n_samples;
-        for (int i = 0; i < averaging && res == 1; i++) {
-            res = my_core->GetADCBytes(buffer + i * 2 * ADC_FRAME_N * n_samples);
+        for (int i = 0; i < current_n_averaging && res == 1; i++) {
+            res = my_core->GetADCBytes(buffer + i * 2 * ADC_FRAME_N * current_n_samples);
         }
         if (res == 1) {
-            processor->setData(buffer, 2 * ADC_FRAME_N * n_samples * averaging);
-            processor->RawDataToData(current_n_samples);
+            processor->setData(buffer, 2 * ADC_FRAME_N * current_n_samples * current_n_averaging);
+            processor->RawDataToData(current_n_samples, current_n_averaging);
+
             switch (ui->comboBox_2->currentIndex()) {
             case 0:
                 my_core->energy_block.impulse
@@ -554,21 +549,22 @@ void MainWindow::adcThreadStop()
         StateADC = false;
     }
     ui->pushButton_2->setEnabled(true);
+    ui->comboBox_2->setEnabled(true);
     ui->pushButton_2->setText("СТАРТ");
 }
 
 void MainWindow::adcThreadStart()
 {
-    StateADC = true;
-    abortFlag.store(false);
     my_core->sport.flushReceiver();
     if (my_core->StartADCBytes(ui->comboBox_2->currentIndex() + 1) != 1) {
         showErrMsgBox("Ошибка подключения", "Устройство отключено.");
         return;
     }
-
+    abortFlag.store(false);
+    StateADC = true;
     adcThread = std::thread(&MainWindow::adcThreadLoop, this);
     ui->pushButton_2->setText("СТОП");
+    ui->comboBox_2->setEnabled(false);
 }
 
 void MainWindow::on_pushButton_6_clicked()
@@ -583,4 +579,32 @@ void MainWindow::on_pushButton_6_clicked()
     } else
         processor->ClearData();
     emit requestChartUpdate(processor->GetPoints());
+}
+
+void MainWindow::on_comboBox_2_currentIndexChanged(int index)
+{
+    switch (index) {
+    case 0: {
+        QSignalBlocker blocker1(ui->horizontalSlider);
+        QSignalBlocker blocker2(ui->doubleSpinBox);
+        ui->doubleSpinBox->setValue(my_core->energy_block.impulse_pos / (double) STM32_TIM_FREQ);
+        ui->horizontalSlider->setValue(my_core->energy_block.impulse_pos);
+        break;
+    }
+    case 1: {
+        QSignalBlocker blocker1(ui->horizontalSlider);
+        QSignalBlocker blocker2(ui->doubleSpinBox);
+        ui->doubleSpinBox->setValue(my_core->cathode_block.impulse_i_pos / (double) STM32_TIM_FREQ);
+        ui->horizontalSlider->setValue(my_core->cathode_block.impulse_i_pos);
+        break;
+    }
+
+    case 2: {
+        QSignalBlocker blocker1(ui->horizontalSlider);
+        QSignalBlocker blocker2(ui->doubleSpinBox);
+        ui->doubleSpinBox->setValue(my_core->cathode_block.impulse_u_pos / (double) STM32_TIM_FREQ);
+        ui->horizontalSlider->setValue(my_core->cathode_block.impulse_u_pos);
+        break;
+    }
+    }
 }

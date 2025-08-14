@@ -179,7 +179,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>0</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
@@ -195,7 +195,7 @@
            <property name="geometry">
             <rect>
              <x>0</x>
-             <y>-199</y>
+             <y>0</y>
              <width>967</width>
              <height>917</height>
             </rect>
@@ -1927,7 +1927,7 @@
               </property>
               <property name="sizeHint" stdset="0">
                <size>
-                <width>40</width>
+                <width>75</width>
                 <height>20</height>
                </size>
               </property>
@@ -1989,7 +1989,7 @@ QSlider::handle:horizontal {
               </property>
               <property name="sizeHint" stdset="0">
                <size>
-                <width>40</width>
+                <width>30</width>
                 <height>20</height>
                </size>
               </property>
