@@ -111,8 +111,8 @@ void MainWindow::on_button_connect_clicked()
         HasBeenDisconnected();
         ui->button_connect->setText("Подключить");
     } else if (my_core->status == CONNECTED_SPORT) {
-        if (StateADC)
-            adcThreadStop();
+        //if (StateADC)
+        //adcThreadStop();
         my_core->close_sprot();
         HasBeenDisconnected();
         ui->button_connect->setText("Подключить");
