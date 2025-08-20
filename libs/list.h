@@ -1,9 +1,8 @@
 #ifndef LIST_H
 #define LIST_H
 
+#include "../helping/package.h"
 #include <memory>
-#include "package.h"
-
 
 class List // двусвязный FIFO, поток-небезопасен
 {

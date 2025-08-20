@@ -1,7 +1,5 @@
 #ifndef MODBUSLIB_H
 #define MODBUSLIB_H
-#include "serialib.h"
-#include "modbus_crc.h"
 #include "manager.h"
 #include <cstdint>
 

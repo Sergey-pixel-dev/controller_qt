@@ -6,10 +6,10 @@
 #include <QSerialPortInfo>
 #include <QThread>
 #include <QTimer>
+#include "../core/core.h"
+#include "../core/signalprocessor.h"
+#include "../helping/common_macro.h"
 #include "chart.h"
-#include "common_macro.h"
-#include "core.h"
-#include "signalprocessor.h"
 #include <thread>
 QT_BEGIN_NAMESPACE
 namespace Ui {

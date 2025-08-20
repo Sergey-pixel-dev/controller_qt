@@ -1,83 +1,19 @@
 #include "core.h"
+#include "../helping/common_macro.h"
 
 core::core()
 {
-    modbus = NULL;
-    status = DISCONNECTED;
-    conn_params = NULL;
+    mngr = new Manager();
+    mb_cli = new ModbusClient();
+    mb_cli->mngr = mngr;
+    conn_status = DISCONNECTED;
     current_model = DM25_400;
     int n_samples = ADC_SAMPLES;
     int averaging = 1;
     fill_std_values();
     fill_coef();
 }
-core::~core()
-{
-    if (modbus != NULL)
-        delete modbus;
-    if (conn_params != NULL) {
-        if (conn_params->com_params != NULL)
-            delete conn_params->com_params;
-        if (conn_params->tcp_params != NULL)
-            delete conn_params->tcp_params;
-        delete conn_params;
-    }
-}
-
-int core::init_modbus()
-{
-    if (conn_params == NULL) {
-        return -1;
-    }
-    int feedback = -1;
-    modbus = new qtmodbus(conn_params->type);
-    if (conn_params->type == 0 || conn_params->type == 1) {
-        if (conn_params->com_params == NULL || conn_params->com_params->device == NULL)
-            return -1;
-        feedback = modbus->COM_Init(conn_params->com_params->device,
-                                    conn_params->com_params->baud_rate,
-                                    conn_params->com_params->polarity,
-                                    conn_params->com_params->data_bits,
-                                    conn_params->com_params->stop_bits);
-    }
-    if (conn_params->type == 2) {
-        if (conn_params->tcp_params == NULL || conn_params->tcp_params->ip == NULL)
-            return -1;
-
-        feedback = modbus->TCP_Init(conn_params->tcp_params->ip, conn_params->tcp_params->port);
-    }
-    if (feedback == 0) {
-        modbus->SetSlave(10); //АДРЕС
-        return 0;
-    }
-    status = DISCONNECTED;
-    return -1;
-}
-
-int core::connect_modbus()
-{
-    if (modbus == NULL)
-        return -1;
-
-    int a = modbus->Connect();
-    if (!a) {
-        status = CONNECTED_MODBUS;
-        load_timers_param();
-        return 0;
-    }
-    status = DISCONNECTED;
-    return a;
-}
-
-void core::close_modbus()
-{
-    if (modbus == NULL)
-        return;
-    status = DISCONNECTED;
-    modbus->Close();
-
-    modbus = NULL;
-}
+core::~core() {}
 
 void core::fill_std_values()
 {
@@ -129,9 +65,9 @@ int core::load_timers_param()
 {
     uint16_t a[3];
     uint8_t b;
-    if (modbus->ReadHoldingRegisters(41001, 3, a) != 3)
+    if (mb_cli->ReadHoldingRegisters(a, 41001, 3) != 3)
         return -1;
-    if (modbus->ReadCoils(1, 1, &b) != 1)
+    if (mb_cli->ReadCoils(&b, 1, 1) != 1)
         return -1;
     start_signal.IsEnabled = b;
     start_signal.frequency = a[0];
@@ -142,15 +78,15 @@ int core::load_timers_param()
 
 int core::UpdateValues()
 {
-    if (status == CONNECTED_MODBUS) {
+    if (conn_status == CONNECTED) {
         uint16_t buffer_reg[9];
         uint8_t buffer_discrete[5];
 
         uint16_t signal_params[3];
         uint8_t signal_enabled;
-        if (modbus->ReadInputRegisters(31001, 9, buffer_reg) != 9)
+        if (mb_cli->ReadInputRegisters(buffer_reg, 31001, 9) != 9)
             return -1;
-        if (modbus->ReadDiscrete(10001, 5, buffer_discrete) != 5)
+        if (mb_cli->ReadDiscrete(buffer_discrete, 10001, 5) != 5)
             return -1;
         if (load_timers_param())
             return -1;
@@ -176,16 +112,14 @@ int core::UpdateValues()
 
 int core::StartSignals()
 {
-    if (status == CONNECTED_MODBUS) {
+    if (conn_status == CONNECTED) {
         if (!(start_signal.duration <= 150 && start_signal.frequency <= 9999
-              && start_signal.duration > 0
-              && start_signal.frequency
-                     > 0)) { // start_signal.interval <= 500 && start_signal.interval <= 1000000 / start_signal.frequency - 30
+              && start_signal.duration > 0 && start_signal.frequency > 0)) {
             return -2;
         }
         start_signal.IsEnabled = true;
         uint8_t a = 1;
-        if (modbus->WriteCoils(1, 1, &a) != 1)
+        if (mb_cli->WriteCoils(&a, 1, 1) != 1)
             return -1;
     }
     return 0;
@@ -193,11 +127,11 @@ int core::StartSignals()
 
 int core::StopSignals()
 {
-    start_signal.IsEnabled = false;
-    if (status == CONNECTED_MODBUS) {
+    if (conn_status == CONNECTED) {
         uint8_t a = 0;
-        if (modbus->WriteCoils(1, 1, &a) != 1)
+        if (mb_cli->WriteCoils(&a, 1, 1) != 1)
             return -1;
+        start_signal.IsEnabled = false;
     }
     return 0;
 }
@@ -206,18 +140,18 @@ int core::SetSignals(start_signal_struct s)
 {
     uint16_t a[3];
     if (s.duration <= 150 && s.frequency <= 9999 && s.duration > 0 && s.frequency > 0) {
-        start_signal.frequency = s.frequency;
-        start_signal.interval = s.interval;
-        start_signal.duration = s.duration;
+        if (conn_status == CONNECTED) {
+            a[0] = s.frequency;
+            a[1] = s.duration;
+            a[2] = s.interval;
+            if (mb_cli->WriteHoldingRegisters(a, 41001, 3) != 3)
+                return 2;
+            start_signal.frequency = s.frequency;
+            start_signal.interval = s.interval;
+            start_signal.duration = s.duration;
+        }
     } else
         return 3;
-    if (status == CONNECTED_MODBUS) {
-        a[0] = start_signal.frequency;
-        a[1] = start_signal.duration;
-        a[2] = start_signal.interval;
-        if (modbus->WriteHoldingRegisters(41001, 3, a) != 3)
-            return 2;
-    }
     return 0;
 }
 
@@ -229,54 +163,76 @@ start_signal_struct core::GetSignals()
                                start_signal.interval};
 }
 
-//sport
-int core::connect_sport()
+int core::open(const char *dev, int br, SerialParity par, SerialDataBits db, SerialStopBits sb)
 {
-    if (status == CONNECTED_MODBUS || status == CONNECTED_SPORT)
-        return -1;
-    if (sport.openDevice(conn_params->com_params->device, conn_params->com_params->baud_rate) != 1)
-        return -1;
-    status = CONNECTED_SPORT;
-    return 0;
+    return mngr->open(dev, br, par, db, sb);
 }
 
-int core::close_sprot()
+void core::close()
 {
-    if (status == CONNECTED_SPORT) {
-        sport.closeDevice();
-        status = DISCONNECTED;
-    }
-    return 0;
+    mngr->close();
+}
+
+int core::startManager()
+{
+    return mngr->start();
+}
+
+int core::stopManager()
+{
+    return mngr->stop();
+}
+
+void core::clearADCbuf()
+{
+    mngr->clearADClst();
+}
+
+void core::clearMBbuf()
+{
+    mngr->clearMBlst();
 }
 
 int core::StartADCBytes(int channel)
 {
-    if (status == CONNECTED_SPORT) {
-        uint8_t buf[3];
+    if (conn_status == CONNECTED) {
+        uint8_t *buf = new uint8_t[3];
+        std::unique_ptr<Package> pack = std::make_unique<Package>();
+        pack->size = 3;
+        pack->packageBuf = buf;
         buf[0] = OP_ADC_START;
         buf[1] = channel;
         buf[2] = n_samples;
-        return sport.writeBytes(buf, 3);
+        mngr->queueWrite(std::move(pack));
+        return 0;
     }
     return -1;
 }
 
 int core::GetADCBytes(uint8_t *buffer)
 {
-    if (status == CONNECTED_SPORT) {;
-        if (sport.readBytes(buffer, 2 * ADC_FRAME_N * n_samples, 2000, 1000)
-            != 2 * ADC_FRAME_N * n_samples)
+    if (conn_status == CONNECTED) {
+        std::unique_ptr<Package> pack = nullptr;
+        while (pack == nullptr)
+            pack = mngr->getADCpackage();
+        // придумай как передавать данные дальше
+        if (pack->size != 2 * ADC_FRAME_N * n_samples)
             return -1;
-        return 1;
+        return 0;
     }
     return -1;
 }
 
 int core::StopADCBytes()
 {
-    if (status == CONNECTED_SPORT) {
-        uint8_t buf = OP_ADC_STOP;
-        return sport.writeBytes(&buf, 1);
+    if (conn_status == CONNECTED) {
+        uint8_t *buf = new uint8_t;
+        std::unique_ptr<Package> pack = std::make_unique<Package>();
+        pack->size = 1;
+        pack->packageBuf = buf;
+        *buf = OP_ADC_START;
+        mngr->queueWrite(std::move(pack));
+        return 0;
     }
     return -1;
 }

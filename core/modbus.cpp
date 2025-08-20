@@ -1,4 +1,5 @@
 #include "modbus.h"
+#include "modbus_crc.h"
 
 int ModbusClient::ReadInputRegisters(uint16_t *buf, uint16_t startAdress, uint16_t NbReg)
 {

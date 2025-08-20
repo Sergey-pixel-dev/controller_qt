@@ -4,7 +4,7 @@
 #include <QObject>
 #include <QPointF>
 #include <QVector>
-#include "common_macro.h"
+#include "../helping/common_macro.h"
 
 struct FIR_Filter_params_struct
 {

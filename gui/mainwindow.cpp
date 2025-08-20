@@ -8,15 +8,7 @@ MainWindow::MainWindow(QWidget *parent)
     StateADC = false;
     ui->setupUi(this);
     my_core = new core();
-    my_core->conn_params = new conn_struct{.type = 1,
-                                           .com_params = new com_struct{
-                                               .device = "/dev/ttyUSB0",
-                                               .baud_rate = 115200,
 
-                                               .polarity = 'N',
-                                               .data_bits = 8,
-                                               .stop_bits = 1,
-                                           }};
     timer = new QTimer();
     my_chart = new Chart(ui->horizontalSlider);
     processor = new SignalProcessor();
@@ -84,38 +76,26 @@ MainWindow::~MainWindow()
 
 void MainWindow::on_button_connect_clicked()
 {
-    if (my_core->status == DISCONNECTED) {
-        if (ui->tabWidget->currentIndex() == 0) {
-            int a = my_core->init_modbus();
-            if (!a) {
-                a = my_core->connect_modbus();
-                if (!a) {
-                    HasBeenConnected();
-                    ui->button_connect->setText("Отключить");
-                } else
-                    showErrMsgBox("Ошибка подключения", my_core->modbus->GetErrMsg(a));
-
-            } else
-                showErrMsgBox("Ошибка подключения", my_core->modbus->GetErrMsg(a));
+    if (my_core->conn_status == DISCONNECTED) {
+        if (my_core->open(("/dev/" + ui->comboBox_3->currentText()).toUtf8(),
+                          115200,
+                          SERIAL_PARITY_NONE,
+                          SERIAL_DATABITS_8,
+                          SERIAL_STOPBITS_1)
+            == 1) {
+            my_core->startManager();
+            ui->button_connect->setText("Отключить");
+            HasBeenConnected();
         } else {
-            if (!my_core->connect_sport()) {
-                ui->button_connect->setText("Отключить");
-                HasBeenConnected();
-
-            } else
-                showErrMsgBox("Ошибка подключения", "Не удалось подключиться.");
+            showErrMsgBox("Ошибка подключения", "Ошибка!!!!");
         }
-
-    } else if (my_core->status == CONNECTED_MODBUS) {
-        my_core->close_modbus();
+    } else if (my_core->conn_status == CONNECTED) {
+        my_core->stopManager();
+        my_core->close();
         HasBeenDisconnected();
         ui->button_connect->setText("Подключить");
-    } else if (my_core->status == CONNECTED_SPORT) {
-        //if (StateADC)
-        //adcThreadStop();
-        my_core->close_sprot();
-        HasBeenDisconnected();
-        ui->button_connect->setText("Подключить");
+        if (StateADC)
+            adcThreadStop();
     }
 }
 void MainWindow::HasBeenConnected()
@@ -134,7 +114,7 @@ void MainWindow::HasBeenConnected()
     } else {
         showErrMsgBox("Ошибка подключения", "Данные не были получены.");
     }
-    timer->start(1000);
+    timer->start(500);
 }
 
 void MainWindow::HasBeenDisconnected()
@@ -295,27 +275,11 @@ void MainWindow::on_pushButton_clicked()
 
 void MainWindow::on_tabWidget_currentChanged(int index)
 {
-    if (index == 1) {
-        if (my_core->status == CONNECTED_MODBUS) {
-            my_core->close_modbus();
-            HasBeenDisconnected();
-            my_core->connect_sport();
-            HasBeenConnected();
-        }
-
-    } else if (index == 0) {
-        if (my_core->status == CONNECTED_SPORT) {
-            my_core->close_sprot();
-            my_core->init_modbus();
-            my_core->connect_modbus(); //возможно проверить результат подключения
-            HasBeenConnected();
-        }
-    }
 }
 
 void MainWindow::on_pushButton_2_clicked()
 {
-    if (my_core->status != CONNECTED_SPORT) {
+    if (my_core->conn_status != CONNECTED) {
         showErrMsgBox("Ошибка подключения", "Устройство отключено.");
         return;
     }
@@ -342,12 +306,7 @@ void MainWindow::on_pushButton_3_clicked()
 
 void MainWindow::on_comboBox_3_currentIndexChanged(int index)
 {
-#if defined(_WIN32) || defined(_WIN64)
-    kostil_name_device = (ui->comboBox_3->currentText()).toLocal8Bit();
-#elif defined(__linux__)
-    kostil_name_device = ("/dev/" + ui->comboBox_3->currentText()).toLocal8Bit();
-#endif
-    my_core->conn_params->com_params->device = kostil_name_device.constData();
+
 }
 
 void MainWindow::on_doubleSpinBox_valueChanged(double arg1)
@@ -478,7 +437,7 @@ void MainWindow::adcThreadLoop()
         for (int i = 0; i < current_n_averaging && res == 1; i++) {
             res = my_core->GetADCBytes(buffer + i * 2 * ADC_FRAME_N * current_n_samples);
         }
-        if (res == 1) {
+        if (res == 0) {
             processor->setData(buffer, 2 * ADC_FRAME_N * current_n_samples * current_n_averaging);
             processor->RawDataToData(current_n_samples, current_n_averaging);
 
@@ -555,7 +514,7 @@ void MainWindow::adcThreadStop()
 
 void MainWindow::adcThreadStart()
 {
-    my_core->sport.flushReceiver();
+    my_core->clearADCbuf();
     if (my_core->StartADCBytes(ui->comboBox_2->currentIndex() + 1) != 1) {
         showErrMsgBox("Ошибка подключения", "Устройство отключено.");
         return;

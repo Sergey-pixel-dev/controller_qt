@@ -4,14 +4,13 @@
 #ifndef MANAGER_H
 #define MANAGER_H
 
-#include "serialib.h"
-#include "list.h"
-#include "modbus_crc.h" // crc16()
-#include <deque>
-#include <thread>
+#include "../libs/list.h"
+#include "../libs/serialib.h"
 #include <atomic>
+#include <deque>
 #include <mutex>
 #include <queue>
+#include <thread>
 
 #define MAX_ADC_BUFFER_SIZE 2048 // полезные байты одного ADC-кадра
 #define MAX_MB_BUFFER_SIZE 128   // максимальный размер Modbus-кадра
@@ -27,11 +26,6 @@ class Manager // экземлпяр в динам память
 public:
     Manager();
     ~Manager();
-
-    void initSPORT(const char *device, int baud_rate,
-                   SerialParity parity,
-                   SerialDataBits data_bits,
-                   SerialStopBits stop_bits);
 
     int start();
     int stop();

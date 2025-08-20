@@ -1,13 +1,12 @@
 /*************************************************
  *                   manager.cpp                 *
  *************************************************/
-
 #include "manager.h"
+#include "modbus_crc.h"
 #include <algorithm> // search, find
-#include <cstring>   // memcpy
-#include <thread>
 #include <atomic>
 #include <deque>
+#include <thread>
 
 static const uint8_t ADC_HDR[2] = {ADC_START_1, ADC_START_2};
 static const uint8_t ADC_FTR[2] = {ADC_START_2, ADC_START_1};
@@ -18,21 +17,13 @@ Manager::Manager()
 
 Manager::~Manager() { stop(); }
 
-void Manager::initSPORT(const char *dev, int br, SerialParity par, SerialDataBits db, SerialStopBits sb)
-{
-    device = dev;
-    baud_rate = br;
-    parity = par;
-    data_bits = db;
-    stop_bits = sb;
-}
-
 int Manager::start()
 {
     if (isStarted.load())
         return -1;
 
     isAborted = false;
+    open(device, baud_rate, parity, data_bits, stop_bits);
     main_thread = std::thread(&Manager::main_loop, this);
     isStarted = true;
     return 0;

@@ -1,35 +1,12 @@
 #ifndef CORE_H
 #define CORE_H
-#include "common_macro.h"
-#include "qtmodbus.h"
-#include "serialib.h"
-//оцифровка:
-enum STATUS_ENUM {
+#include "manager.h"
+#include "modbus.h"
+#include <cstdint>
+enum CONN_STATUS_ENUM {
     DISCONNECTED,
-    CONNECTED_MODBUS,
-    CONNECTED_SPORT,
+    CONNECTED,
     ERR,
-};
-
-struct com_struct
-{
-    const char *device;
-    int baud_rate;
-    char polarity;
-    char data_bits;
-    char stop_bits;
-};
-
-struct tcp_struct
-{
-    const char *ip;
-    int port;
-};
-struct conn_struct
-{
-    int type;
-    com_struct *com_params;
-    tcp_struct *tcp_params;
 };
 
 struct heater_block_struct
@@ -44,7 +21,7 @@ struct energy_block_struct
 {
     bool IsEnabled;
     bool IsStarted;
-    bool LE_or_HE; // 0 - LE, 1 - HE
+    bool LE_or_HE; // 1 - LE, 0 - HE
     uint16_t control_he;
     uint16_t control_le;
     uint16_t measure_he;
@@ -95,41 +72,45 @@ private:
     start_signal_struct start_signal;
 
 public:
-    STATUS_ENUM status;
-    conn_struct *conn_params;
-    int init_modbus();
-    int connect_modbus();
     int UpdateValues();
-    int StartSignals();
-    int StopSignals();
-    int SetSignals(start_signal_struct);
-    start_signal_struct GetSignals();
+
     void close_modbus();
     void fill_std_values();
     void fill_coef();
     int load_timers_param();
-    qtmodbus *modbus;
 
-    //Serial port
-    int connect_sport();
-    int close_sprot();
     int StartADCBytes(int channel);
     int GetADCBytes(uint8_t *buffer);
     int StopADCBytes();
-    serialib sport; //в стеке потому что в динам памяти connectDevie -> fd = open падает с segm fault
 
-    //может нужен указатель на heater_block
+    int StartSignals();
+    int StopSignals();
+    int SetSignals(start_signal_struct);
+    start_signal_struct GetSignals();
+
+    int open(const char *dev, int br, SerialParity par, SerialDataBits db, SerialStopBits sb);
+    void close();
+    int startManager();
+    int stopManager();
+    void clearADCbuf();
+    void clearMBbuf();
+
     heater_block_struct heater_block;
     energy_block_struct energy_block;
     cathode_block_struct cathode_block;
     enum_model current_model;
     coef_struct coef;
+    CONN_STATUS_ENUM conn_status;
 
     int n_samples;
     int averaging;
 
     core();
     ~core();
+
+private:
+    Manager *mngr;
+    ModbusClient *mb_cli;
 };
 
 #endif // CORE_H
