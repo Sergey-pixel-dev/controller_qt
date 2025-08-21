@@ -4,8 +4,8 @@
 #include <QObject>
 #include <QPointF>
 #include <QVector>
-#include "../helping/common_macro.h"
-
+#include "../helping/package.h"
+#include "../libs/list.h"
 struct FIR_Filter_params_struct
 {
     bool IsActive;
@@ -29,7 +29,7 @@ class SignalProcessor
 public:
     SignalProcessor();
     ~SignalProcessor();
-    void setData(uint8_t *data, int size);
+    void setData(List<Package<uint8_t>> *queue);
 
     QVector<QPointF> GetPoints();
     void RawDataToData(int n_samples, int averaging);
@@ -41,15 +41,14 @@ public:
     void SetThresholdFilter(bool IsSet, int threshold);
     void SetMovingAverageFilter(bool IsSet, int windowSize);
 
-    QVector<uint16_t> origin_time;
-    QVector<uint16_t> origin_data;
+    QVector<uint32_t> origin_time;
+    QVector<uint32_t> origin_data;
 
 private:
-    int raw_size;
-    uint8_t *raw_data; //должен быть в ДИНАМ ПАМЯТИ!!
+    List<Package<uint8_t>> *queue_data;
 
-    QVector<uint16_t> time;
-    QVector<uint16_t> data;
+    QVector<uint32_t> time;
+    QVector<uint32_t> data;
     void ThresholdFilter();
     void FIR_Filter();
     void MovingAverageFilter();

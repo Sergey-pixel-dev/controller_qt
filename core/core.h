@@ -80,7 +80,7 @@ public:
     int load_timers_param();
 
     int StartADCBytes(int channel);
-    int GetADCBytes(uint8_t *buffer);
+    std::unique_ptr<Package<uint8_t>> GetADCBytes(); // блокирующий
     int StopADCBytes();
 
     int StartSignals();

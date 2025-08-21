@@ -165,11 +165,16 @@ start_signal_struct core::GetSignals()
 
 int core::open(const char *dev, int br, SerialParity par, SerialDataBits db, SerialStopBits sb)
 {
-    return mngr->open(dev, br, par, db, sb);
+    if (mngr->open(dev, br, par, db, sb) == 1) {
+        conn_status = CONNECTED;
+        return 1;
+    } else
+        return 0;
 }
 
 void core::close()
 {
+    conn_status = DISCONNECTED;
     mngr->close();
 }
 
@@ -209,18 +214,17 @@ int core::StartADCBytes(int channel)
     return -1;
 }
 
-int core::GetADCBytes(uint8_t *buffer)
+std::unique_ptr<Package<uint8_t>> core::GetADCBytes()
 {
     if (conn_status == CONNECTED) {
         std::unique_ptr<Package<uint8_t>> pack = nullptr;
         while (pack == nullptr)
             pack = mngr->getADCpackage();
-        // придумай как передавать данные дальше
-        if (pack->size != 2 * ADC_FRAME_N * n_samples)
-            return -1;
-        return 0;
+        if (pack->size != 2 * ADC_FRAME_N * n_samples + 4)
+            return nullptr;
+        return pack;
     }
-    return -1;
+    return nullptr;
 }
 
 int core::StopADCBytes()
@@ -230,7 +234,7 @@ int core::StopADCBytes()
         std::unique_ptr<Package<uint8_t>> pack = std::make_unique<Package<uint8_t>>();
         pack->size = 1;
         pack->packageBuf = buf;
-        *buf = OP_ADC_START;
+        *buf = OP_ADC_STOP;
         mngr->queueWrite(std::move(pack));
         return 0;
     }

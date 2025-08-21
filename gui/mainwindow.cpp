@@ -90,12 +90,12 @@ void MainWindow::on_button_connect_clicked()
             showErrMsgBox("Ошибка подключения", "Ошибка!!!!");
         }
     } else if (my_core->conn_status == CONNECTED) {
-        my_core->stopManager();
-        my_core->close();
-        HasBeenDisconnected();
-        ui->button_connect->setText("Подключить");
         if (StateADC)
             adcThreadStop();
+        HasBeenDisconnected();
+        ui->button_connect->setText("Подключить");
+        my_core->stopManager();
+        my_core->close();
     }
 }
 void MainWindow::HasBeenConnected()
@@ -114,7 +114,7 @@ void MainWindow::HasBeenConnected()
     } else {
         showErrMsgBox("Ошибка подключения", "Данные не были получены.");
     }
-    timer->start(500);
+    //timer->start(1000);
 }
 
 void MainWindow::HasBeenDisconnected()
@@ -425,52 +425,6 @@ void MainWindow::on_comboBox_7_currentIndexChanged(int index)
     }
 }
 
-void MainWindow::adcThreadLoop()
-{
-    const int current_n_samples = my_core->n_samples;
-    const int current_n_averaging = my_core->averaging;
-    uint8_t *buffer = new uint8_t[2 * ADC_FRAME_N * current_n_samples * current_n_averaging];
-    int res = 1;
-    auto task = std::bind(&MainWindow::handleThreadResult, this);
-
-    while (!abortFlag.load()) {
-        for (int i = 0; i < current_n_averaging && res == 1; i++) {
-            res = my_core->GetADCBytes(buffer + i * 2 * ADC_FRAME_N * current_n_samples);
-        }
-        if (res == 0) {
-            processor->setData(buffer, 2 * ADC_FRAME_N * current_n_samples * current_n_averaging);
-            processor->RawDataToData(current_n_samples, current_n_averaging);
-
-            switch (ui->comboBox_2->currentIndex()) {
-            case 0:
-                my_core->energy_block.impulse
-                    = (my_core->energy_block.impulse
-                       + processor->origin_data[my_core->energy_block.impulse_pos])
-                      / 2;
-                break;
-            case 1:
-                my_core->cathode_block.impulse_i
-                    = (my_core->cathode_block.impulse_i
-                       + processor->origin_data[my_core->cathode_block.impulse_i_pos])
-                      / 2;
-                break;
-            case 2:
-                my_core->cathode_block.impulse_u
-                    = (my_core->cathode_block.impulse_u
-                       + processor->origin_data[my_core->cathode_block.impulse_u_pos])
-                      / 2;
-                break;
-            }
-            emit requestChartUpdate(processor->GetPoints());
-        }
-    }
-    delete[] buffer;
-    if (my_core->StopADCBytes() == 1) {
-        StateADC = false;
-        QMetaObject::invokeMethod(this, task, Qt::QueuedConnection);
-    }
-}
-
 void MainWindow::handleThreadResult() {}
 
 void MainWindow::updateChart(QVector<QPointF> points)
@@ -515,7 +469,7 @@ void MainWindow::adcThreadStop()
 void MainWindow::adcThreadStart()
 {
     my_core->clearADCbuf();
-    if (my_core->StartADCBytes(ui->comboBox_2->currentIndex() + 1) != 1) {
+    if (my_core->StartADCBytes(ui->comboBox_2->currentIndex() + 1) != 0) {
         showErrMsgBox("Ошибка подключения", "Устройство отключено.");
         return;
     }
@@ -524,6 +478,54 @@ void MainWindow::adcThreadStart()
     adcThread = std::thread(&MainWindow::adcThreadLoop, this);
     ui->pushButton_2->setText("СТОП");
     ui->comboBox_2->setEnabled(false);
+}
+
+void MainWindow::adcThreadLoop()
+{
+    const int current_n_samples = my_core->n_samples;
+    const int current_n_averaging = my_core->averaging;
+    auto task = std::bind(&MainWindow::handleThreadResult, this);
+    std::unique_ptr<Package<uint8_t>> pack = nullptr;
+    List<Package<uint8_t>> *queue = new List<Package<uint8_t>>();
+    while (!abortFlag.load()) {
+        for (int i = 0; i < current_n_averaging; i++) {
+            while (pack == nullptr)
+                pack = my_core->GetADCBytes();
+            queue->add(std::move(pack));
+        }
+        if (queue->size() == current_n_averaging) {
+            processor->setData(queue);
+            processor->RawDataToData(current_n_samples, current_n_averaging);
+
+            switch (ui->comboBox_2->currentIndex()) {
+            case 0:
+                my_core->energy_block.impulse
+                    = (my_core->energy_block.impulse
+                       + processor->origin_data[my_core->energy_block.impulse_pos])
+                      / 2;
+                break;
+            case 1:
+                my_core->cathode_block.impulse_i
+                    = (my_core->cathode_block.impulse_i
+                       + processor->origin_data[my_core->cathode_block.impulse_i_pos])
+                      / 2;
+                break;
+            case 2:
+                my_core->cathode_block.impulse_u
+                    = (my_core->cathode_block.impulse_u
+                       + processor->origin_data[my_core->cathode_block.impulse_u_pos])
+                      / 2;
+                break;
+            }
+            if (ui->tabWidget->currentIndex() == 1)
+                emit requestChartUpdate(processor->GetPoints());
+        }
+    }
+    delete queue;
+    if (my_core->StopADCBytes() == 0) {
+        StateADC = false;
+        QMetaObject::invokeMethod(this, task, Qt::QueuedConnection);
+    }
 }
 
 void MainWindow::on_pushButton_6_clicked()

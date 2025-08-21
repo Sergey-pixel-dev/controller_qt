@@ -1,8 +1,9 @@
 #include "signalprocessor.h"
+#include "../helping/common_macro.h"
+
 SignalProcessor::SignalProcessor()
 {
-    raw_size = 0;
-    raw_data = NULL;
+    queue_data = nullptr;
     FIR_Filt_par.IsActive = false;
     MovAvrFil_par.IsActive = false;
     ThresholdFIl_par.IsActive = false;
@@ -12,10 +13,9 @@ SignalProcessor::~SignalProcessor()
 
 }
 
-void SignalProcessor::setData(uint8_t *data, int size)
+void SignalProcessor::setData(List<Package<uint8_t>> *queue)
 {
-    raw_data = data;
-    raw_size = size;
+    queue_data = queue;
 }
 
 QVector<QPointF> SignalProcessor::GetPoints()
@@ -37,25 +37,28 @@ QVector<QPointF> SignalProcessor::GetPoints()
 void SignalProcessor::RawDataToData(int n_samples, int averaging)
 {
     uint16_t out = 0;
-    uint16_t size = raw_size / 2 / averaging;
-    uint32_t sum = 0;
-    origin_time.resize(size);
-    origin_data.resize(size);
-    for (int i = 0; i < size; i++) {
-        sum = 0;
-        for (int j = 0; j < averaging; j++) {
-            out = raw_data[2 * i + j * size * 2];
-            out |= raw_data[2 * i + 1 + j * size * 2] << 8;
-            sum += out;
+    uint16_t size = queue_data->size();
+    std::unique_ptr<Package<uint8_t>> pack = nullptr;
+    origin_time.resize(ADC_FRAME_N * n_samples); //уже будет все по 0
+    origin_data.resize(ADC_FRAME_N * n_samples);
+    for (int i = 0; i < ADC_FRAME_N * n_samples; i++) {
+        origin_data[i] = 0;
+        origin_time[i] = 0;
+    }
+    for (int n = 0; n < size; n++) {
+        pack = queue_data->pop();
+        for (int i = 0; i < pack->size / 2 - 2;
+             i++) { //первые и последние два байта - начало и конец АЦП пакета - не данные
+            out = pack->packageBuf[2 * i + 2];
+            out |= pack->packageBuf[2 * i + 3] << 8;
+            origin_data[(ADC_FRAME_N) * (i % n_samples) + i / n_samples] += out;
+            origin_time[(ADC_FRAME_N) * (i % n_samples) + i / n_samples]
+                = (i % n_samples) * STM32_CYCL_ADC * 1000 / STM32_ADC_FREQ
+                  + (i / n_samples) * STM32_TIM_N * 1000 / STM32_TIM_FREQ;
         }
-        out = sum / averaging;
-        origin_data[(ADC_FRAME_N) * (i % n_samples) + i / n_samples] = out;
-        origin_time[(ADC_FRAME_N) * (i % n_samples) + i / n_samples] = (i % n_samples)
-                                                                           * STM32_CYCL_ADC * 1000
-                                                                           / STM32_ADC_FREQ
-                                                                       + (i / n_samples)
-                                                                             * STM32_TIM_N * 1000
-                                                                             / STM32_TIM_FREQ;
+    }
+    for (int i = 0; i < origin_data.size(); i++) {
+        origin_data[i] = origin_data[i] / averaging;
     }
     data = origin_data;
     time = origin_time;
@@ -88,14 +91,14 @@ void SignalProcessor::SetMovingAverageFilter(bool IsSet, int windowSize)
 }
 void SignalProcessor::ThresholdFilter()
 {
-    QVector<uint16_t> newData;
-    QVector<uint16_t> newTime;
+    QVector<uint32_t> newData;
+    QVector<uint32_t> newTime;
     newData.reserve(origin_data.size());
     newTime.reserve(origin_time.size());
     for (int i = 0; i < origin_data.size() - 1; i++) {
         newData.append(origin_data[i]);
         newTime.append(origin_time[i]);
-        if (abs(origin_data[i] - origin_data[i + 1]) > ThresholdFIl_par.threshold)
+        if (abs((int) (origin_data[i] - origin_data[i + 1])) > ThresholdFIl_par.threshold)
             i++; //data[i] добавляем, а data[i+1] пропускаем
     }
     data.swap(newData);
@@ -141,7 +144,7 @@ void SignalProcessor::FIR_Filter()
         H[n] /= sum;
     }
 
-    QVector<uint16_t> newData;
+    QVector<uint32_t> newData;
     newData.resize(origin_data.size());
 
     for (int i = 0; i < origin_data.size(); i++) {
@@ -168,7 +171,7 @@ void SignalProcessor::MovingAverageFilter()
         return;
     }
     int sum = 0.0;
-    QVector<uint16_t> newData;
+    QVector<uint32_t> newData;
     newData.resize(origin_data.size());
     for (int i = 0; i < n; ++i) {
         sum += origin_data[i];

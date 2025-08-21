@@ -38,6 +38,8 @@ else()
     endif()
 endif()
 
+target_include_directories(controller_qt PRIVATE ${CMAKE_SOURCE_DIR}/gui)
+
 # Подключение библиотек
 target_link_libraries(controller_qt PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
@@ -45,8 +47,6 @@ target_link_libraries(controller_qt PRIVATE
     Qt${QT_VERSION_MAJOR}::SerialPort
 )
 
-# Добавить modbus библиотеку, если нужна
-target_link_libraries(controller_qt PRIVATE modbus)
 
 # Настройки для разных платформ
 if(MINGW OR WIN32)

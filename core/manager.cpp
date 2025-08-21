@@ -76,7 +76,7 @@ int Manager::open(const char *dev, int br, SerialParity p, SerialDataBits db, Se
 
     if (!sport.isDeviceOpen())
         return sport.openDevice(dev, br, db, p, sb);
-    return 0;
+    return 1;
 }
 
 void Manager::close()
@@ -136,11 +136,15 @@ bool Manager::extractModbus(std::deque<uint8_t> &buf)
     if (available < len)
         return false; // ждём остаток
 
-    uint16_t crcFrame = (uint16_t)*(it + len - 1) << 8 | *(it + len - 2);
+    std::vector<uint8_t>
+        packet_data(it, it + len); // создаем локальную копию, чтоб правильно считать crc16
+    // ведь *(it +i) - работает как итератор, но мы передаем в crc16 итератор ка указатель
+    // но deque - не линейное представление данных, а блочное -> ошибка подсчет crc16
+    uint16_t crcFrame = (uint16_t) packet_data[len - 1] << 8 | packet_data[len - 2];
+    uint16_t crcCalc = crc16(packet_data.data(), len - 2);
 
-    if (crc16(&(*it), len - 2) != crcFrame)
-    {
-        buf.erase(it); // неверный CRC, сдвигаем окно
+    if (crcCalc != crcFrame) {
+        buf.erase(buf.begin(), it + len);
         return true;
     }
 
