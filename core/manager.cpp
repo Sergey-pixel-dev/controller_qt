@@ -41,19 +41,19 @@ int Manager::stop()
     return 0;
 }
 
-void Manager::queueWrite(std::unique_ptr<Package> pack)
+void Manager::queueWrite(std::unique_ptr<Package<uint8_t>> pack)
 {
     std::lock_guard<std::mutex> lock(mtxWriteQueue);
     writeQueue.push(std::move(pack));
 }
 
-std::unique_ptr<Package> Manager::getADCpackage()
+std::unique_ptr<Package<uint8_t>> Manager::getADCpackage()
 {
     std::lock_guard<std::mutex> lock(mtxADC);
     return lstADC.pop();
 }
 
-std::unique_ptr<Package> Manager::getMBpackage()
+std::unique_ptr<Package<uint8_t>> Manager::getMBpackage()
 {
     std::lock_guard<std::mutex> lock(mtxMB);
     return lstMB.pop();
@@ -97,7 +97,7 @@ bool Manager::extractADC(std::deque<uint8_t> &buf)
     end += 2;
 
     int packet_size = int(end - beg);
-    auto pack = std::make_unique<Package>();
+    auto pack = std::make_unique<Package<uint8_t>>();
     pack->size = packet_size;
     pack->packageBuf = new uint8_t[packet_size];
     std::copy(beg, end, pack->packageBuf);
@@ -144,7 +144,7 @@ bool Manager::extractModbus(std::deque<uint8_t> &buf)
         return true;
     }
 
-    auto p = std::make_unique<Package>();
+    auto p = std::make_unique<Package<uint8_t>>();
     p->size = len;
     p->packageBuf = new uint8_t[len];
     std::copy(it, it + len, p->packageBuf);
@@ -176,7 +176,7 @@ int Manager::main_loop()
             std::lock_guard<std::mutex> lock(mtxWriteQueue);
             while (!writeQueue.empty())
             {
-                std::unique_ptr<Package> pack = std::move(writeQueue.front());
+                std::unique_ptr<Package<uint8_t>> pack = std::move(writeQueue.front());
                 writeQueue.pop();
                 sport.writeBytes(pack->packageBuf, pack->size);
             }

@@ -4,6 +4,7 @@
 #ifndef MANAGER_H
 #define MANAGER_H
 
+#include "../helping/package.h"
 #include "../libs/list.h"
 #include "../libs/serialib.h"
 #include <atomic>
@@ -31,10 +32,10 @@ public:
     int stop();
     int open(const char *, int, SerialParity, SerialDataBits, SerialStopBits);
     void close();
-    void queueWrite(std::unique_ptr<Package> pack);
+    void queueWrite(std::unique_ptr<Package<uint8_t>> pack);
 
-    std::unique_ptr<Package> getADCpackage();
-    std::unique_ptr<Package> getMBpackage();
+    std::unique_ptr<Package<uint8_t>> getADCpackage();
+    std::unique_ptr<Package<uint8_t>> getMBpackage();
     void clearADClst();
     void clearMBlst();
 
@@ -51,7 +52,7 @@ private:
 
     std::mutex mtxMB;
     std::mutex mtxADC;
-    std::queue<std::unique_ptr<Package>> writeQueue;
+    std::queue<std::unique_ptr<Package<uint8_t>>> writeQueue;
     std::mutex mtxWriteQueue;
 
     const char *device;
@@ -60,8 +61,8 @@ private:
     SerialDataBits data_bits;
     SerialStopBits stop_bits;
 
-    List lstADC;
-    List lstMB;
+    List<Package<uint8_t>> lstADC;
+    List<Package<uint8_t>> lstMB;
 };
 
 #endif /* MANAGER_H */

@@ -3,7 +3,7 @@
 
 int ModbusClient::ReadInputRegisters(uint16_t *buf, uint16_t startAdress, uint16_t NbReg)
 {
-    std::unique_ptr<Package> pack1 = std::make_unique<Package>();
+    std::unique_ptr<Package<uint8_t>> pack1 = std::make_unique<Package<uint8_t>>();
     uint8_t *packBuf = new uint8_t[8]; // Исправлено: выделяем только нужное количество
     pack1->packageBuf = packBuf;
     pack1->size = 8;
@@ -22,7 +22,7 @@ int ModbusClient::ReadInputRegisters(uint16_t *buf, uint16_t startAdress, uint16
     mngr->clearMBlst();
 
     mngr->queueWrite(std::move(pack1));
-    std::unique_ptr<Package> pack2 = nullptr;
+    std::unique_ptr<Package<uint8_t>> pack2 = nullptr;
     while (pack2 == nullptr)
         pack2 = mngr->getMBpackage();
 
@@ -47,7 +47,7 @@ int ModbusClient::ReadInputRegisters(uint16_t *buf, uint16_t startAdress, uint16
 
 int ModbusClient::ReadHoldingRegisters(uint16_t *buf, uint16_t startAdress, uint16_t NbReg)
 {
-    std::unique_ptr<Package> pack1 = std::make_unique<Package>();
+    std::unique_ptr<Package<uint8_t>> pack1 = std::make_unique<Package<uint8_t>>();
     uint8_t *requestBuf = new uint8_t[8];
     pack1->packageBuf = requestBuf;
     pack1->size = 8;
@@ -67,7 +67,7 @@ int ModbusClient::ReadHoldingRegisters(uint16_t *buf, uint16_t startAdress, uint
 
     mngr->queueWrite(std::move(pack1));
 
-    std::unique_ptr<Package> response = nullptr;
+    std::unique_ptr<Package<uint8_t>> response = nullptr;
     while (response == nullptr)
         response = mngr->getMBpackage();
 
@@ -93,7 +93,7 @@ int ModbusClient::ReadHoldingRegisters(uint16_t *buf, uint16_t startAdress, uint
 int ModbusClient::WriteHoldingRegisters(uint16_t *buf, uint16_t startAdress, uint16_t NbReg)
 {
     int packet_size = 9 + NbReg * 2;
-    std::unique_ptr<Package> pack1 = std::make_unique<Package>();
+    std::unique_ptr<Package<uint8_t>> pack1 = std::make_unique<Package<uint8_t>>();
     uint8_t *requestBuf = new uint8_t[packet_size];
     pack1->packageBuf = requestBuf;
     pack1->size = packet_size;
@@ -120,7 +120,7 @@ int ModbusClient::WriteHoldingRegisters(uint16_t *buf, uint16_t startAdress, uin
 
     mngr->queueWrite(std::move(pack1));
 
-    std::unique_ptr<Package> response = nullptr;
+    std::unique_ptr<Package<uint8_t>> response = nullptr;
     while (response == nullptr)
         response = mngr->getMBpackage();
 
@@ -139,7 +139,7 @@ int ModbusClient::WriteHoldingRegisters(uint16_t *buf, uint16_t startAdress, uin
 
 int ModbusClient::ReadDiscrete(uint8_t *buf, uint16_t startAdress, uint16_t NbDis)
 {
-    std::unique_ptr<Package> pack1 = std::make_unique<Package>();
+    std::unique_ptr<Package<uint8_t>> pack1 = std::make_unique<Package<uint8_t>>();
     uint8_t *requestBuf = new uint8_t[8];
     pack1->packageBuf = requestBuf;
     pack1->size = 8;
@@ -159,7 +159,7 @@ int ModbusClient::ReadDiscrete(uint8_t *buf, uint16_t startAdress, uint16_t NbDi
 
     mngr->queueWrite(std::move(pack1));
 
-    std::unique_ptr<Package> response = nullptr;
+    std::unique_ptr<Package<uint8_t>> response = nullptr;
     while (response == nullptr)
         response = mngr->getMBpackage();
 
@@ -186,7 +186,7 @@ int ModbusClient::ReadDiscrete(uint8_t *buf, uint16_t startAdress, uint16_t NbDi
 
 int ModbusClient::ReadCoils(uint8_t *buf, uint16_t startAdress, uint16_t NbCoils)
 {
-    std::unique_ptr<Package> pack1 = std::make_unique<Package>();
+    std::unique_ptr<Package<uint8_t>> pack1 = std::make_unique<Package<uint8_t>>();
     uint8_t *requestBuf = new uint8_t[8];
     pack1->packageBuf = requestBuf;
     pack1->size = 8;
@@ -206,7 +206,7 @@ int ModbusClient::ReadCoils(uint8_t *buf, uint16_t startAdress, uint16_t NbCoils
 
     mngr->queueWrite(std::move(pack1));
 
-    std::unique_ptr<Package> response = nullptr;
+    std::unique_ptr<Package<uint8_t>> response = nullptr;
     while (response == nullptr)
         response = mngr->getMBpackage();
 
@@ -236,7 +236,7 @@ int ModbusClient::WriteCoils(uint8_t *buf, uint16_t startAdress, uint16_t NbCoil
     int bytes_count = (NbCoils + 7) / 8;
     int packet_size = 9 + bytes_count;
 
-    std::unique_ptr<Package> pack1 = std::make_unique<Package>();
+    std::unique_ptr<Package<uint8_t>> pack1 = std::make_unique<Package<uint8_t>>();
     uint8_t *requestBuf = new uint8_t[packet_size];
     pack1->packageBuf = requestBuf;
     pack1->size = packet_size;
@@ -266,7 +266,7 @@ int ModbusClient::WriteCoils(uint8_t *buf, uint16_t startAdress, uint16_t NbCoil
 
     mngr->queueWrite(std::move(pack1));
 
-    std::unique_ptr<Package> response = nullptr;
+    std::unique_ptr<Package<uint8_t>> response = nullptr;
     while (response == nullptr)
         response = mngr->getMBpackage();
 

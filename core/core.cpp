@@ -197,7 +197,7 @@ int core::StartADCBytes(int channel)
 {
     if (conn_status == CONNECTED) {
         uint8_t *buf = new uint8_t[3];
-        std::unique_ptr<Package> pack = std::make_unique<Package>();
+        std::unique_ptr<Package<uint8_t>> pack = std::make_unique<Package<uint8_t>>();
         pack->size = 3;
         pack->packageBuf = buf;
         buf[0] = OP_ADC_START;
@@ -212,7 +212,7 @@ int core::StartADCBytes(int channel)
 int core::GetADCBytes(uint8_t *buffer)
 {
     if (conn_status == CONNECTED) {
-        std::unique_ptr<Package> pack = nullptr;
+        std::unique_ptr<Package<uint8_t>> pack = nullptr;
         while (pack == nullptr)
             pack = mngr->getADCpackage();
         // придумай как передавать данные дальше
@@ -227,7 +227,7 @@ int core::StopADCBytes()
 {
     if (conn_status == CONNECTED) {
         uint8_t *buf = new uint8_t;
-        std::unique_ptr<Package> pack = std::make_unique<Package>();
+        std::unique_ptr<Package<uint8_t>> pack = std::make_unique<Package<uint8_t>>();
         pack->size = 1;
         pack->packageBuf = buf;
         *buf = OP_ADC_START;
