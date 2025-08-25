@@ -55,6 +55,8 @@ private slots:
     void updateChart(QVector<QPointF> points);
     void adcThreadStop();
     void adcThreadStart();
+    void startModbusUpdateThread();
+    void stopModbusUpdateThread();
     void on_pushButton_6_clicked();
 
     void on_comboBox_2_currentIndexChanged(int index);
@@ -74,8 +76,12 @@ private:
     QMessageBox *msgBox;
     Ui::MainWindow *ui;
     Chart *my_chart;
+
     std::thread adcThread;
     std::atomic<bool> abortFlag{false};
+
+    std::thread modbusThread;
+    std::atomic<bool> abortModbusFlag{false};
 
     bool StateADC;
     void showErrMsgBox(const char *title, const char *msg);

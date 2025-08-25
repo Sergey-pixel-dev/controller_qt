@@ -24,6 +24,8 @@ int Manager::start()
 
     isAborted = false;
     open(device, baud_rate, parity, data_bits, stop_bits);
+    clearADClst();
+    clearMBlst();
     main_thread = std::thread(&Manager::main_loop, this);
     isStarted = true;
     return 0;

@@ -17,30 +17,10 @@ core::~core() {}
 
 void core::fill_std_values()
 {
-    StopSignals();
-    SetSignals(start_signal_struct{false, 100, 30, 0});
-    heater_block.IsEnabled = 0;
-    heater_block.IsReady = 0;
-    heater_block.control_i = 0;
-    heater_block.measure_i = 0;
-    heater_block.measure_u = 0;
-
-    energy_block.IsEnabled = 0;
-    energy_block.LE_or_HE = 0;
-    energy_block.control_le = 0;
-    energy_block.control_he = 0;
-    energy_block.measure_le = 0;
-    energy_block.measure_he = 0;
-    energy_block.impulse = 0;
-    energy_block.impulse_pos = 0;
-
-    cathode_block.IsEnabled = 0;
-    cathode_block.control_cathode = 0;
-    cathode_block.measure_cathode = 0;
-    cathode_block.impulse_i = 0;
-    cathode_block.impulse_u = 0;
-    cathode_block.impulse_i_pos = 0;
-    cathode_block.impulse_u_pos = 0;
+    memset(&heater_block, 0, sizeof(heater_block));
+    memset(&energy_block, 0, sizeof(energy_block));
+    memset(&cathode_block, 0, sizeof(cathode_block));
+    memset(&start_signal, 0, sizeof(start_signal));
 }
 
 void core::fill_coef()
@@ -65,9 +45,9 @@ int core::load_timers_param()
 {
     uint16_t a[3];
     uint8_t b;
-    if (mb_cli->ReadHoldingRegisters(a, 41001, 3) != 3)
+    if (mb_cli->ReadHoldingRegisters(a, 41001, 3, 1000) != 3)
         return -1;
-    if (mb_cli->ReadCoils(&b, 1, 1) != 1)
+    if (mb_cli->ReadCoils(&b, 1, 1, 1000) != 1)
         return -1;
     start_signal.IsEnabled = b;
     start_signal.frequency = a[0];
@@ -84,9 +64,9 @@ int core::UpdateValues()
 
         uint16_t signal_params[3];
         uint8_t signal_enabled;
-        if (mb_cli->ReadInputRegisters(buffer_reg, 31001, 9) != 9)
+        if (mb_cli->ReadInputRegisters(buffer_reg, 31001, 9, 1000) != 9)
             return -1;
-        if (mb_cli->ReadDiscrete(buffer_discrete, 10001, 5) != 5)
+        if (mb_cli->ReadDiscrete(buffer_discrete, 10001, 5, 1000) != 5)
             return -1;
         if (load_timers_param())
             return -1;
@@ -119,7 +99,7 @@ int core::StartSignals()
         }
         start_signal.IsEnabled = true;
         uint8_t a = 1;
-        if (mb_cli->WriteCoils(&a, 1, 1) != 1)
+        if (mb_cli->WriteCoils(&a, 1, 1, 1000) != 1)
             return -1;
     }
     return 0;
@@ -129,7 +109,7 @@ int core::StopSignals()
 {
     if (conn_status == CONNECTED) {
         uint8_t a = 0;
-        if (mb_cli->WriteCoils(&a, 1, 1) != 1)
+        if (mb_cli->WriteCoils(&a, 1, 1, 1000) != 1)
             return -1;
         start_signal.IsEnabled = false;
     }
@@ -144,7 +124,8 @@ int core::SetSignals(start_signal_struct s)
             a[0] = s.frequency;
             a[1] = s.duration;
             a[2] = s.interval;
-            if (mb_cli->WriteHoldingRegisters(a, 41001, 3) != 3)
+            int res = mb_cli->WriteHoldingRegisters(a, 41001, 3, 1000);
+            if (res != 3)
                 return 2;
             start_signal.frequency = s.frequency;
             start_signal.interval = s.interval;

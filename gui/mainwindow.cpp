@@ -70,8 +70,11 @@ MainWindow::~MainWindow()
     delete processor;
     StateADC = false;
     abortFlag = true;
+    abortModbusFlag = true;
     if (adcThread.joinable())
         adcThread.join();
+    if (modbusThread.joinable())
+        modbusThread.join();
 }
 
 void MainWindow::on_button_connect_clicked()
@@ -90,8 +93,10 @@ void MainWindow::on_button_connect_clicked()
             showErrMsgBox("Ошибка подключения", "Ошибка!!!!");
         }
     } else if (my_core->conn_status == CONNECTED) {
-        if (StateADC)
+        if (StateADC) {
             adcThreadStop();
+            ui->section->SetDisable(false);
+        }
         HasBeenDisconnected();
         ui->button_connect->setText("Подключить");
         my_core->stopManager();
@@ -111,44 +116,37 @@ void MainWindow::HasBeenConnected()
         ui->checkBox->setEnabled(true);
         ui->pushButton_2->setEnabled(true);
         ui->label_4->setText("Соединение установлено");
+        //startModbusUpdateThread();
+        timer->start(1000);
     } else {
         showErrMsgBox("Ошибка подключения", "Данные не были получены.");
     }
-    //timer->start(1000);
 }
 
 void MainWindow::HasBeenDisconnected()
 {
-    timer->stop();
+    //stopModbusUpdateThread();
     my_core->fill_std_values();
     UpdateScreenValues();
-    QApplication::processEvents();
-    start_signal_struct signal_str = my_core->GetSignals();
-    ui->spinBox->setValue(signal_str.frequency);
-    ui->doubleSpinBox_27->setValue(signal_str.duration / 10.0);
-    ui->spinBox_2->setValue(signal_str.interval);
-    ui->checkBox->setCheckState(signal_str.IsEnabled ? Qt::Checked : Qt::Unchecked);
-
+    //установка параметров по умолчанию таймеров
+    ui->doubleSpinBox_27->setValue(0.0);
+    ui->spinBox->setValue(0);
+    ui->spinBox_2->setValue(0);
+    {
+        QSignalBlocker blocker(ui->checkBox);
+        ui->checkBox->setCheckState(Qt::Unchecked);
+    }
     ui->pushButton_2->setEnabled(false);
     ui->pushButton->setEnabled(false);
     ui->checkBox->setEnabled(false);
     ui->label_4->setText("Соединение отсутствует");
-
-    //ui->checkBox_2->setEnabled(false);
 }
 
 void MainWindow::slotTimerAlarm()
 {
-    //исправь потом, в tab index == 1, будет всегда писаться, что соединения нет, хотя это может быть не так
-    if (!my_core->UpdateValues()) {
-        UpdateScreenValues();
-        if (ui->label_4->text() == "Соединение отсутствует") { // сравнение - костыль
-            ui->label_4->setText("Соединение установлено");
-            HasBeenConnected();
-        }
-    } else {
-        HasBeenDisconnected();
-        ui->label_4->setText("Соединение отсутствует");
+    if (ui->label_4->text() == "Соединение отсутствует" && my_core->conn_status == CONNECTED) {
+        ui->label_4->setText("Соединение установлено");
+        HasBeenConnected();
     }
 }
 
@@ -283,12 +281,18 @@ void MainWindow::on_pushButton_2_clicked()
         showErrMsgBox("Ошибка подключения", "Устройство отключено.");
         return;
     }
+    if (!my_core->GetSignals().IsEnabled) {
+        showErrMsgBox("Ошибка оцифровки", "Сигнал \"СТАРТ\" не установлен.");
+        return;
+    }
     if (!StateADC) {
         ui->section->toggle(false);
         ui->section->SetDisable(true);
+        ui->checkBox->setDisabled(true);
         adcThreadStart();
     } else {
         adcThreadStop();
+        ui->checkBox->setDisabled(false);
         ui->section->SetDisable(false);
     }
 }
@@ -525,6 +529,47 @@ void MainWindow::adcThreadLoop()
     if (my_core->StopADCBytes() == 0) {
         StateADC = false;
         QMetaObject::invokeMethod(this, task, Qt::QueuedConnection);
+    }
+}
+
+void MainWindow::startModbusUpdateThread()
+{
+    if (modbusThread.joinable())
+        return;
+
+    abortModbusFlag = false;
+    modbusThread = std::thread([this]() {
+        while (!abortModbusFlag.load()) {
+            if (my_core->conn_status == CONNECTED && false) {
+                if (my_core->UpdateValues() == 0) {
+                    QMetaObject::invokeMethod(
+                        this,
+                        [this]() {
+                            if (ui->tabWidget->currentIndex() == 0) {
+                                UpdateScreenValues();
+                            }
+                        },
+                        Qt::QueuedConnection);
+                } else {
+                    QMetaObject::invokeMethod(
+                        this,
+                        [this]() {
+                            HasBeenDisconnected();
+                            ui->label_4->setText("Соединение отсутствует");
+                        },
+                        Qt::QueuedConnection);
+                }
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(700));
+        }
+    });
+}
+
+void MainWindow::stopModbusUpdateThread()
+{
+    abortModbusFlag = true;
+    if (modbusThread.joinable()) {
+        modbusThread.join();
     }
 }
 
