@@ -116,7 +116,7 @@ void MainWindow::HasBeenConnected()
         ui->checkBox->setEnabled(true);
         ui->pushButton_2->setEnabled(true);
         ui->label_4->setText("Соединение установлено");
-        //startModbusUpdateThread();
+        startModbusUpdateThread();
         timer->start(1000);
     } else {
         showErrMsgBox("Ошибка подключения", "Данные не были получены.");
@@ -125,7 +125,7 @@ void MainWindow::HasBeenConnected()
 
 void MainWindow::HasBeenDisconnected()
 {
-    //stopModbusUpdateThread();
+    stopModbusUpdateThread();
     my_core->fill_std_values();
     UpdateScreenValues();
     //установка параметров по умолчанию таймеров
@@ -540,7 +540,7 @@ void MainWindow::startModbusUpdateThread()
     abortModbusFlag = false;
     modbusThread = std::thread([this]() {
         while (!abortModbusFlag.load()) {
-            if (my_core->conn_status == CONNECTED && false) {
+            if (my_core->conn_status == CONNECTED) {
                 if (my_core->UpdateValues() == 0) {
                     QMetaObject::invokeMethod(
                         this,

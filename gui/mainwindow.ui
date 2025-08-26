@@ -385,7 +385,7 @@
                      <set>Qt::AlignmentFlag::AlignCenter</set>
                     </property>
                     <property name="maximum">
-                     <number>9999</number>
+                     <number>999</number>
                     </property>
                    </widget>
                   </item>

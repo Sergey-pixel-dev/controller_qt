@@ -185,6 +185,7 @@ int Manager::main_loop()
                 std::unique_ptr<Package<uint8_t>> pack = std::move(writeQueue.front());
                 writeQueue.pop();
                 sport.writeBytes(pack->packageBuf, pack->size);
+                std::this_thread::sleep_for(std::chrono::microseconds(2500));
             }
         }
 
