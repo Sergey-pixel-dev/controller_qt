@@ -4,32 +4,48 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+    , appCore(nullptr)
+    , signalProcessor(nullptr)
+    , my_chart(nullptr)
+    , msgBox(nullptr)
+    , updateTimer(nullptr)
 {
-    StateADC = false;
     ui->setupUi(this);
-    my_core = new core();
 
-    timer = new QTimer();
+    // Создаем компоненты
+    appCore = new core(this);
+    signalProcessor = new SignalProcessor();
     my_chart = new Chart(ui->horizontalSlider);
-    processor = new SignalProcessor();
+    msgBox = new QMessageBox(this);
+    updateTimer = new QTimer(this);
 
-    connect(timer, SIGNAL(timeout()), this, SLOT(slotTimerAlarm()));
-    connect(this,
-            &MainWindow::requestChartUpdate,
-            this,
-            &MainWindow::updateChart,
-            Qt::QueuedConnection);
+    setupUI();
+    connectSignals();
 
-    msgBox = new QMessageBox();
+    // Инициализация
+    appCore->fill_std_values();
+    signalProcessor->ClearData();
+}
 
+MainWindow::~MainWindow()
+{
+    delete ui;
+    delete my_chart;
+    delete signalProcessor;
+}
+
+void MainWindow::setupUI()
+{
+    // Настройка прокрутки
     ui->scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
 
+    // Настройка секций
     ui->section->setContentLayout(ui->widget_6->layout());
     ui->section->setTitle("Параметры оцифровки");
-
     ui->section_2->setContentLayout(ui->widget_8->layout());
     ui->section_2->setTitle("Параметры управляющих сигналов");
 
+    // Заполнение комбобоксов
     ui->comboBox->addItem(QString("ДМ25-400"));
     ui->comboBox->addItem(QString("ДМ25-401"));
     ui->comboBox->addItem(QString("ДМ25-600"));
@@ -53,247 +69,154 @@ MainWindow::MainWindow(QWidget *parent)
     ui->comboBox_7->addItem(QString("Скользящая средняя"));
     ui->comboBox_7->addItem(QString("КИХ-фильтр нижних частот"));
 
+    // Настройка графика
     ui->chartView->setRubberBand(QChartView::RectangleRubberBand);
     ui->chartView->setChart(my_chart->GetChart());
+
+    // Начальное состояние
     ui->spinBox_2->setEnabled(false);
-    on_pushButton_3_clicked();
-    my_core->fill_std_values();
-    UpdateScreenValues();
-}
-
-MainWindow::~MainWindow()
-{
-    delete ui;
-    delete my_core;
-    delete timer;
-    delete my_chart;
-    delete processor;
-    StateADC = false;
-    abortFlag = true;
-    abortModbusFlag = true;
-    if (adcThread.joinable())
-        adcThread.join();
-    if (modbusThread.joinable())
-        modbusThread.join();
-}
-
-void MainWindow::on_button_connect_clicked()
-{
-    if (my_core->conn_status == DISCONNECTED) {
-        if (my_core->open(("/dev/" + ui->comboBox_3->currentText()).toUtf8(),
-                          115200,
-                          SERIAL_PARITY_NONE,
-                          SERIAL_DATABITS_8,
-                          SERIAL_STOPBITS_1)
-            == 1) {
-            my_core->startManager();
-            ui->button_connect->setText("Отключить");
-            HasBeenConnected();
-        } else {
-            showErrMsgBox("Ошибка подключения", "Ошибка!!!!");
-        }
-    } else if (my_core->conn_status == CONNECTED) {
-        if (StateADC) {
-            adcThreadStop();
-            ui->section->SetDisable(false);
-        }
-        HasBeenDisconnected();
-        ui->button_connect->setText("Подключить");
-        my_core->stopManager();
-        my_core->close();
-    }
-}
-void MainWindow::HasBeenConnected()
-{
-    if (!my_core->UpdateValues()) {
-        UpdateScreenValues();
-        start_signal_struct signal_str = my_core->GetSignals();
-        ui->spinBox->setValue(signal_str.frequency);
-        ui->doubleSpinBox_27->setValue(signal_str.duration / 10.0);
-        ui->spinBox_2->setValue(signal_str.interval);
-        ui->checkBox->setCheckState(signal_str.IsEnabled ? Qt::Checked : Qt::Unchecked);
-        ui->pushButton->setEnabled(true);
-        ui->checkBox->setEnabled(true);
-        ui->pushButton_2->setEnabled(true);
-        ui->label_4->setText("Соединение установлено");
-        startModbusUpdateThread();
-        timer->start(1000);
-    } else {
-        showErrMsgBox("Ошибка подключения", "Данные не были получены.");
-    }
-}
-
-void MainWindow::HasBeenDisconnected()
-{
-    stopModbusUpdateThread();
-    my_core->fill_std_values();
-    UpdateScreenValues();
-    //установка параметров по умолчанию таймеров
-    ui->doubleSpinBox_27->setValue(0.0);
-    ui->spinBox->setValue(0);
-    ui->spinBox_2->setValue(0);
-    {
-        QSignalBlocker blocker(ui->checkBox);
-        ui->checkBox->setCheckState(Qt::Unchecked);
-    }
-    ui->pushButton_2->setEnabled(false);
     ui->pushButton->setEnabled(false);
+    ui->pushButton_2->setEnabled(false);
     ui->checkBox->setEnabled(false);
     ui->label_4->setText("Соединение отсутствует");
+
+    // Загружаем доступные порты
+    on_pushButton_3_clicked();
 }
 
-void MainWindow::slotTimerAlarm()
+void MainWindow::connectSignals()
 {
-    if (ui->label_4->text() == "Соединение отсутствует" && my_core->conn_status == CONNECTED) {
-        ui->label_4->setText("Соединение установлено");
-        HasBeenConnected();
+    // Связываем ADC поток с обработчиком данных
+    connect(appCore, &core::adcDataReady, this, &MainWindow::onDataProcessed);
+
+    // Периодическое обновление UI (данные с устройства)
+    connect(updateTimer, &QTimer::timeout, this, &MainWindow::updateScreenValues);
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    if (appCore->isConnected()) {
+        appCore->disconnectDevice();
     }
+    event->accept();
 }
 
-void MainWindow::UpdateScreenValues()
+// UI Event Handlers
+void MainWindow::on_button_connect_clicked()
 {
-    if (my_core->heater_block.IsEnabled) {
-        ui->widget->setActive(true);
-        ui->label->setText(QString("ВКЛ"));
+    if (!appCore->isConnected()) {
+        QString port = "/dev/" + ui->comboBox_3->currentText();
+
+        ConnectResult result = static_cast<ConnectResult>(appCore->connectDevice(port));
+
+        switch (result) {
+        case ConnectResult::Success:
+            ui->button_connect->setText("Отключить");
+            ui->pushButton->setEnabled(true);
+            ui->pushButton_2->setEnabled(true);
+            ui->checkBox->setEnabled(true);
+            ui->label_4->setText("Соединение установлено");
+
+            // Загружаем параметры сигналов
+            loadSignalParameters();
+
+            // Запускаем периодическое обновление
+            updateTimer->start(1000);
+            break;
+
+        case ConnectResult::AlreadyConnected:
+            showErrMsgBox("Предупреждение", "Устройство уже подключено");
+            break;
+
+        case ConnectResult::DataNotReceived:
+            showErrMsgBox("Ошибка", "Данные не были получены");
+            break;
+
+        case ConnectResult::ManagerStartError:
+            showErrMsgBox("Ошибка", "Ошибка запуска менеджера");
+            break;
+
+        case ConnectResult::PortOpenError:
+            showErrMsgBox("Ошибка", "Ошибка подключения к порту");
+            break;
+        }
     } else {
-        ui->widget->setActive(false);
-        ui->label->setText(QString("ВЫКЛ"));
-    }
-    if (my_core->heater_block.IsReady)
-        ui->label_8->setText(QString("ГОТОВ"));
-    else
-        ui->label_8->setText(QString("НЕ ГОТОВ"));
-
-    ui->doubleSpinBox_1->setValue(my_core->heater_block.control_i / 1000.0);
-    ui->doubleSpinBox_3->setValue(my_core->heater_block.control_i * my_core->coef.coef_i_set
-                                  / 1000.0);
-    ui->doubleSpinBox_4->setValue(my_core->heater_block.measure_i / 1000.0);
-    ui->doubleSpinBox_5->setValue(my_core->heater_block.measure_i * my_core->coef.coef_i_meas
-                                  / 1000.0);
-    ui->doubleSpinBox_9->setValue(my_core->heater_block.measure_u / 1000.0);
-    ui->doubleSpinBox_10->setValue(my_core->heater_block.measure_u
-                                   * my_core->coef.coef_u_heater_meas / 1000.0);
-
-    if (my_core->energy_block.IsEnabled) {
-        ui->widget_5->setActive(true);
-        ui->label_5->setText(QString("ВКЛ"));
-
-    } else {
-        ui->widget_5->setActive(false);
-        ui->label_5->setText(QString("ВЫКЛ"));
-    }
-    if (my_core->energy_block.LE_or_HE)
-        ui->label_3->setText(QString("Выбрана ВЭ"));
-    else
-        ui->label_3->setText(QString("Выбрана НЭ"));
-    ui->doubleSpinBox_11->setValue(my_core->energy_block.control_he / 1000.0);
-    ui->doubleSpinBox_15->setValue(my_core->energy_block.control_he * my_core->coef.coef_u_he_set
-                                   / 1000000.0);
-    ui->doubleSpinBox_17->setValue(my_core->energy_block.measure_he / 1000.0);
-    ui->doubleSpinBox_22->setValue(my_core->energy_block.measure_he * my_core->coef.coef_u_he_meas
-                                   / 1000000.0);
-    ui->doubleSpinBox_19->setValue(my_core->energy_block.control_le / 1000.0);
-    ui->doubleSpinBox_18->setValue(my_core->energy_block.control_le * my_core->coef.coef_u_le_set
-                                   / 1000000.0);
-    ui->doubleSpinBox_21->setValue(my_core->energy_block.measure_le / 1000.0);
-    ui->doubleSpinBox_23->setValue(my_core->energy_block.measure_le * my_core->coef.coef_u_le_meas
-                                   / 1000000.0);
-
-    if (my_core->cathode_block.IsEnabled) {
-        ui->widget_4->setActive(true);
-        ui->label_6->setText(QString("ВКЛ"));
-    } else {
-        ui->widget_4->setActive(false);
-        ui->label_6->setText(QString("ВЫКЛ"));
-    }
-    ui->doubleSpinBox_24->setValue(my_core->cathode_block.control_cathode / 1000.0);
-    ui->doubleSpinBox_25->setValue(my_core->cathode_block.control_cathode
-                                   * my_core->coef.coef_u_cat_set / 1000000.0);
-    ui->doubleSpinBox_26->setValue(my_core->cathode_block.measure_cathode / 1000.0);
-    ui->doubleSpinBox_16->setValue(my_core->cathode_block.measure_cathode
-                                   * my_core->coef.coef_u_cat_meas / 1000000.0);
-}
-
-void MainWindow::showErrMsgBox(const char *title, const char *msg)
-{
-    msgBox->setWindowTitle(title);
-    msgBox->setText(msg);
-    msgBox->setStandardButtons(QMessageBox::Ok);
-    msgBox->setStyleSheet("QLabel{font-size: 16px;}");
-    int ret = msgBox->exec();
-
-    if (ret == QMessageBox::Ok) {
-        // мб что-то добавить
+        updateTimer->stop();
+        appCore->disconnectDevice();
+        setDisconnectedState();
     }
 }
 
-void MainWindow::on_comboBox_activated(int index)
+void MainWindow::on_pushButton_2_clicked()
 {
-    switch (index) {
-    case 0:
-        this->my_core->current_model = DM25_400;
-        break;
-    case 1:
-        this->my_core->current_model = DM25_401;
-        break;
-    case 2:
-        this->my_core->current_model = DM25_600;
-        break;
+    if (!appCore->isConnected()) {
+        showErrMsgBox("Ошибка", "Устройство не подключено");
+        return;
     }
-    this->my_core->fill_coef();
+
+    if (!appCore->isADCRunning()) {
+        if (!appCore->getSignals().IsEnabled) {
+            showErrMsgBox("Ошибка", "Сигнал \"СТАРТ\" не установлен");
+            return;
+        }
+
+        MeasurementResult result = static_cast<MeasurementResult>(
+            appCore->startADC(ui->comboBox_2->currentIndex() + 1));
+        handleMeasurementResult(result);
+    } else {
+        appCore->stopADC();
+        setMeasurementStoppedState();
+    }
 }
 
 void MainWindow::on_checkBox_checkStateChanged(const Qt::CheckState &arg1)
 {
     if (arg1 == Qt::Checked) {
-        if (my_core->StartSignals() == -2) {
+        SignalResult result = static_cast<SignalResult>(appCore->startSignals());
+
+        switch (result) {
+        case SignalResult::Success:
+            ui->checkBox->setText("ВКЛ");
+            break;
+
+        case SignalResult::InvalidParameters:
             showErrMsgBox("Ошибка", "Неверные параметры - включить невозможно!");
             ui->checkBox->setCheckState(Qt::Unchecked);
-            return;
+            break;
+
+        default:
+            showErrMsgBox("Ошибка", "Не удалось запустить сигналы");
+            ui->checkBox->setCheckState(Qt::Unchecked);
+            break;
         }
-        ui->checkBox->setText(QString("ВКЛ"));
     } else {
-        ui->checkBox->setText(QString("ВЫКЛ"));
-        my_core->StopSignals();
+        ui->checkBox->setText("ВЫКЛ");
+        appCore->stopSignals();
     }
 }
 
 void MainWindow::on_pushButton_clicked()
 {
-    int a = my_core->SetSignals(start_signal_struct{false,
-                                                    (uint16_t) ui->spinBox->value(),
-                                                    (uint16_t) (ui->doubleSpinBox_27->value() * 10),
-                                                    (uint16_t) ui->spinBox_2->value()});
-    if (a == 3) {
-        showErrMsgBox("Ошибка", "Неправильные параметры сигналов.");
-    } else if (a == 2) {
-        showErrMsgBox("Ошибка подключения", "Данные не отправились");
-    }
-}
+    start_signal_struct signal{false,
+                               (uint16_t) ui->spinBox->value(),
+                               (uint16_t) (ui->doubleSpinBox_27->value() * 10),
+                               (uint16_t) ui->spinBox_2->value()};
 
-void MainWindow::on_tabWidget_currentChanged(int index)
-{
-}
+    SignalResult result = static_cast<SignalResult>(appCore->setSignals(signal));
 
-void MainWindow::on_pushButton_2_clicked()
-{
-    if (my_core->conn_status != CONNECTED) {
-        showErrMsgBox("Ошибка подключения", "Устройство отключено.");
-        return;
-    }
-    if (!my_core->GetSignals().IsEnabled) {
-        showErrMsgBox("Ошибка оцифровки", "Сигнал \"СТАРТ\" не установлен.");
-        return;
-    }
-    if (!StateADC) {
-        ui->section->toggle(false);
-        ui->section->SetDisable(true);
-        ui->checkBox->setDisabled(true);
-        adcThreadStart();
-    } else {
-        adcThreadStop();
-        ui->checkBox->setDisabled(false);
-        ui->section->SetDisable(false);
+    switch (result) {
+    case SignalResult::Success:
+        // Всё хорошо
+        break;
+    case SignalResult::InvalidParameters:
+        showErrMsgBox("Ошибка", "Неправильные параметры сигналов");
+        break;
+    case SignalResult::SendError:
+        showErrMsgBox("Ошибка", "Данные не отправились");
+        break;
+    case SignalResult::NotConnected:
+        showErrMsgBox("Ошибка", "Устройство не подключено");
+        break;
     }
 }
 
@@ -308,309 +231,418 @@ void MainWindow::on_pushButton_3_clicked()
     }
 }
 
+void MainWindow::on_pushButton_6_clicked()
+{
+    // Сброс значений импульсов
+    appCore->energy_block.impulse = 0;
+    appCore->cathode_block.impulse_i = 0;
+    appCore->cathode_block.impulse_u = 0;
+
+    // Очистка данных в процессоре
+    signalProcessor->ClearData();
+
+    // Перезапуск измерения если оно активно
+    if (appCore->isADCRunning()) {
+        appCore->stopADC();
+        appCore->startADC(ui->comboBox_2->currentIndex() + 1);
+    }
+
+    // Обновление графика
+    updateChart(signalProcessor->GetPoints());
+}
+
+void MainWindow::on_comboBox_activated(int index)
+{
+    switch (index) {
+    case 0:
+        appCore->current_model = DM25_400;
+        break;
+    case 1:
+        appCore->current_model = DM25_401;
+        break;
+    case 2:
+        appCore->current_model = DM25_600;
+        break;
+    }
+    appCore->fill_coef();
+}
+
+void MainWindow::on_comboBox_2_currentIndexChanged(int index)
+{
+    updateImpulsePosition(index);
+    updateChannelLabels(index);
+}
+
 void MainWindow::on_comboBox_3_currentIndexChanged(int index)
 {
+    // Обработчик изменения порта
+}
 
+void MainWindow::on_comboBox_4_currentIndexChanged(int index)
+{
+    bool wasRunning = appCore->isADCRunning();
+    if (wasRunning) {
+        appCore->stopADC();
+    }
+
+    appCore->averaging = pow(4, index);
+
+    if (wasRunning) {
+        appCore->startADC(ui->comboBox_2->currentIndex() + 1);
+    }
+}
+
+void MainWindow::on_comboBox_6_currentIndexChanged(int index)
+{
+    bool wasRunning = appCore->isADCRunning();
+    if (wasRunning) {
+        appCore->stopADC();
+    }
+
+    switch (index) {
+    case 0:
+        appCore->n_samples = 8;
+        my_chart->axisX->setRange(0, 3);
+        break;
+    case 1:
+        appCore->n_samples = 16;
+        my_chart->axisX->setRange(0, 6);
+        break;
+    case 2:
+    default:
+        appCore->n_samples = 24;
+        my_chart->axisX->setRange(0, 9);
+        break;
+    }
+
+    if (wasRunning) {
+        appCore->startADC(ui->comboBox_2->currentIndex() + 1);
+    }
+}
+
+void MainWindow::on_comboBox_7_currentIndexChanged(int index)
+{
+    switch (index) {
+    case 0: // Без фильтра
+        signalProcessor->SetMovingAverageFilter(false, 3);
+        signalProcessor->SetFIR_Filter(false, 101);
+        signalProcessor->SetThresholdFilter(false, 0);
+        break;
+    case 1: // Скользящая средняя
+        signalProcessor->SetMovingAverageFilter(true, 3);
+        signalProcessor->SetFIR_Filter(false, 101);
+        signalProcessor->SetThresholdFilter(false, 0);
+        break;
+    case 2: // КИХ-фильтр
+        signalProcessor->SetMovingAverageFilter(false, 3);
+        signalProcessor->SetFIR_Filter(true, 101);
+        signalProcessor->SetThresholdFilter(false, 0);
+        break;
+    }
 }
 
 void MainWindow::on_doubleSpinBox_valueChanged(double arg1)
 {
     uint16_t i_offset = arg1 * STM32_TIM_FREQ;
-    //мб вынести текущий канал в core
 
     switch (ui->comboBox_2->currentIndex()) {
     case 0:
-        my_core->energy_block.impulse_pos = i_offset;
+        appCore->energy_block.impulse_pos = i_offset;
         break;
     case 1:
-        my_core->cathode_block.impulse_i_pos = i_offset;
+        appCore->cathode_block.impulse_i_pos = i_offset;
         break;
     case 2:
-        my_core->cathode_block.impulse_u_pos = i_offset;
+        appCore->cathode_block.impulse_u_pos = i_offset;
         break;
     }
-    {
-        QSignalBlocker blocker(ui->horizontalSlider);
-        ui->horizontalSlider->setValue(i_offset);
-    }
+
+    QSignalBlocker blocker(ui->horizontalSlider);
+    ui->horizontalSlider->setValue(i_offset);
 }
+
 void MainWindow::on_horizontalSlider_valueChanged(int value)
 {
     uint16_t i_offset = value;
 
     switch (ui->comboBox_2->currentIndex()) {
     case 0:
-        my_core->energy_block.impulse_pos = i_offset;
+        appCore->energy_block.impulse_pos = i_offset;
         break;
     case 1:
-        my_core->cathode_block.impulse_i_pos = i_offset;
+        appCore->cathode_block.impulse_i_pos = i_offset;
         break;
     case 2:
-        my_core->cathode_block.impulse_u_pos = i_offset;
+        appCore->cathode_block.impulse_u_pos = i_offset;
         break;
     }
-    {
-        QSignalBlocker blocker(ui->doubleSpinBox);
-        ui->doubleSpinBox->setValue(value / (double) STM32_TIM_FREQ);
-    }
+
+    QSignalBlocker blocker(ui->doubleSpinBox);
+    ui->doubleSpinBox->setValue(value / (double) STM32_TIM_FREQ);
 }
 
 void MainWindow::on_doubleSpinBox_editingFinished()
 {
-    {
-        QSignalBlocker blocker(ui->doubleSpinBox);
-        ui->doubleSpinBox->setValue(ui->horizontalSlider->value() / (double) STM32_TIM_FREQ);
-    }
+    QSignalBlocker blocker(ui->doubleSpinBox);
+    ui->doubleSpinBox->setValue(ui->horizontalSlider->value() / (double) STM32_TIM_FREQ);
 }
 
-void MainWindow::closeEvent(QCloseEvent *event)
+void MainWindow::on_tabWidget_currentChanged(int index)
 {
-    abortFlag = true;
-    if (adcThread.joinable())
-        adcThread.join();
-    event->accept();
+    // Обработчик переключения вкладок
 }
 
-void MainWindow::on_pushButton_5_clicked() {}
-
-void MainWindow::on_comboBox_6_currentIndexChanged(int index)
+// Private helper methods
+void MainWindow::loadSignalParameters()
 {
-    bool wasRunning = StateADC;
-
-    if (wasRunning)
-        adcThreadStop();
-    switch (index) {
-    case 0:
-        my_core->n_samples = 8;
-        my_chart->axisX->setRange(0, 3);
-
-        break;
-    case 1:
-        my_core->n_samples = 16;
-        my_chart->axisX->setRange(0, 6);
-
-        break;
-    case 2:
-    default:
-        my_chart->axisX->setRange(0, 9);
-        my_core->n_samples = 24;
-    }
-    if (wasRunning) {
-        adcThreadStart();
-    }
+    start_signal_struct signal = appCore->getSignals();
+    ui->spinBox->setValue(signal.frequency);
+    ui->doubleSpinBox_27->setValue(signal.duration / 10.0);
+    ui->spinBox_2->setValue(signal.interval);
+    ui->checkBox->setCheckState(signal.IsEnabled ? Qt::Checked : Qt::Unchecked);
+    ui->checkBox->setText(signal.IsEnabled ? "ВКЛ" : "ВЫКЛ");
 }
 
-void MainWindow::on_comboBox_4_currentIndexChanged(int index)
+void MainWindow::setDisconnectedState()
 {
-    bool wasRunning = StateADC;
-    if (wasRunning)
-        adcThreadStop();
-    my_core->averaging = pow(4, index);
-    if (wasRunning)
-        adcThreadStart();
-}
-
-void MainWindow::on_comboBox_7_currentIndexChanged(int index)
-{
-    switch (index) {
-    case 0:
-        processor->SetMovingAverageFilter(false, 3);
-        processor->SetFIR_Filter(false, 101);
-        break;
-    case 1:
-        processor->SetMovingAverageFilter(true, 3);
-        processor->SetFIR_Filter(false, 101);
-
-        break;
-    case 2:
-        processor->SetMovingAverageFilter(false, 3);
-        processor->SetFIR_Filter(true, 101);
-        break;
-    }
-}
-
-void MainWindow::handleThreadResult() {}
-
-void MainWindow::updateChart(QVector<QPointF> points)
-{
-    if (my_chart) {
-        my_chart->DrawChart(points);
-        switch (ui->comboBox_2->currentIndex()) {
-        case 0:
-            my_chart->DrawAverage(
-                QPointF(processor->origin_time[my_core->energy_block.impulse_pos] / 1000.0,
-                        my_core->energy_block.impulse));
-            break;
-        case 1:
-            my_chart->DrawAverage(
-                QPointF(processor->origin_time[my_core->cathode_block.impulse_i_pos] / 1000.0,
-                        my_core->cathode_block.impulse_i));
-            break;
-        case 2:
-            my_chart->DrawAverage(
-                QPointF(processor->origin_time[my_core->cathode_block.impulse_u_pos] / 1000.0,
-                        my_core->cathode_block.impulse_u));
-            break;
-        }
-    }
-}
-
-void MainWindow::adcThreadStop()
-{
-    ui->pushButton_2->setText("Останавливается...");
+    ui->button_connect->setText("Подключить");
+    ui->pushButton->setEnabled(false);
     ui->pushButton_2->setEnabled(false);
-    QApplication::processEvents();
-    abortFlag.store(true);
-    if (adcThread.joinable()) {
-        adcThread.join();
-        StateADC = false;
-    }
-    ui->pushButton_2->setEnabled(true);
-    ui->comboBox_2->setEnabled(true);
-    ui->pushButton_2->setText("СТАРТ");
+    ui->checkBox->setEnabled(false);
+    ui->label_4->setText("Соединение отсутствует");
+
+    // Сброс параметров
+    ui->doubleSpinBox_27->setValue(0.0);
+    ui->spinBox->setValue(0);
+    ui->spinBox_2->setValue(0);
+    QSignalBlocker blocker(ui->checkBox);
+    ui->checkBox->setCheckState(Qt::Unchecked);
+    ui->checkBox->setText("ВЫКЛ");
 }
 
-void MainWindow::adcThreadStart()
+void MainWindow::handleMeasurementResult(MeasurementResult result)
 {
-    my_core->clearADCbuf();
-    if (my_core->StartADCBytes(ui->comboBox_2->currentIndex() + 1) != 0) {
-        showErrMsgBox("Ошибка подключения", "Устройство отключено.");
-        return;
+    switch (result) {
+    case MeasurementResult::Success:
+        setMeasurementStartedState();
+        break;
+    case MeasurementResult::NotConnected:
+        showErrMsgBox("Ошибка", "Устройство не подключено");
+        break;
+    case MeasurementResult::SignalNotSet:
+        showErrMsgBox("Ошибка", "Сигнал СТАРТ не установлен");
+        break;
+    case MeasurementResult::AlreadyRunning:
+        showErrMsgBox("Ошибка", "Измерение уже запущено");
+        break;
+    case MeasurementResult::StartError:
+        showErrMsgBox("Ошибка", "Ошибка запуска измерения");
+        break;
     }
-    abortFlag.store(false);
-    StateADC = true;
-    adcThread = std::thread(&MainWindow::adcThreadLoop, this);
+}
+
+void MainWindow::setMeasurementStartedState()
+{
     ui->pushButton_2->setText("СТОП");
+    ui->label_47->setText("Оцифровка запущена");
     ui->comboBox_2->setEnabled(false);
+    ui->section->toggle(false);
+    ui->section->SetDisable(true);
+    ui->checkBox->setDisabled(true);
 }
 
-void MainWindow::adcThreadLoop()
+void MainWindow::setMeasurementStoppedState()
 {
-    const int current_n_samples = my_core->n_samples;
-    const int current_n_averaging = my_core->averaging;
-    auto task = std::bind(&MainWindow::handleThreadResult, this);
-    std::unique_ptr<Package<uint8_t>> pack = nullptr;
-    List<Package<uint8_t>> *queue = new List<Package<uint8_t>>();
-    while (!abortFlag.load()) {
-        for (int i = 0; i < current_n_averaging; i++) {
-            while (pack == nullptr)
-                pack = my_core->GetADCBytes();
-            queue->add(std::move(pack));
-        }
-        if (queue->size() == current_n_averaging) {
-            processor->setData(queue);
-            processor->RawDataToData(current_n_samples, current_n_averaging);
+    ui->pushButton_2->setText("СТАРТ");
+    ui->label_47->setText("Оцифровка остановлена");
+    ui->comboBox_2->setEnabled(true);
+    ui->section->SetDisable(false);
+    ui->checkBox->setDisabled(false);
+}
 
+void MainWindow::updateScreenValues()
+{
+    // Heater block
+    ui->widget->setActive(appCore->heater_block.IsEnabled);
+    ui->label->setText(appCore->heater_block.IsEnabled ? "ВКЛ" : "ВЫКЛ");
+    ui->label_8->setText(appCore->heater_block.IsReady ? "ГОТОВ" : "НЕ ГОТОВ");
+
+    ui->doubleSpinBox_1->setValue(appCore->heater_block.control_i / 1000.0);
+    ui->doubleSpinBox_3->setValue(appCore->heater_block.control_i * appCore->coef.coef_i_set
+                                  / 1000.0);
+    ui->doubleSpinBox_4->setValue(appCore->heater_block.measure_i / 1000.0);
+    ui->doubleSpinBox_5->setValue(appCore->heater_block.measure_i * appCore->coef.coef_i_meas
+                                  / 1000.0);
+    ui->doubleSpinBox_9->setValue(appCore->heater_block.measure_u / 1000.0);
+    ui->doubleSpinBox_10->setValue(appCore->heater_block.measure_u
+                                   * appCore->coef.coef_u_heater_meas / 1000.0);
+
+    // Energy block
+    ui->widget_5->setActive(appCore->energy_block.IsEnabled);
+    ui->label_5->setText(appCore->energy_block.IsEnabled ? "ВКЛ" : "ВЫКЛ");
+    ui->label_3->setText(appCore->energy_block.LE_or_HE ? "Выбрана ВЭ" : "Выбрана НЭ");
+
+    ui->doubleSpinBox_11->setValue(appCore->energy_block.control_he / 1000.0);
+    ui->doubleSpinBox_15->setValue(appCore->energy_block.control_he * appCore->coef.coef_u_he_set
+                                   / 1000000.0);
+    ui->doubleSpinBox_17->setValue(appCore->energy_block.measure_he / 1000.0);
+    ui->doubleSpinBox_22->setValue(appCore->energy_block.measure_he * appCore->coef.coef_u_he_meas
+                                   / 1000000.0);
+    ui->doubleSpinBox_19->setValue(appCore->energy_block.control_le / 1000.0);
+    ui->doubleSpinBox_18->setValue(appCore->energy_block.control_le * appCore->coef.coef_u_le_set
+                                   / 1000000.0);
+    ui->doubleSpinBox_21->setValue(appCore->energy_block.measure_le / 1000.0);
+    ui->doubleSpinBox_23->setValue(appCore->energy_block.measure_le * appCore->coef.coef_u_le_meas
+                                   / 1000000.0);
+
+    // Cathode block
+    ui->widget_4->setActive(appCore->cathode_block.IsEnabled);
+    ui->label_6->setText(appCore->cathode_block.IsEnabled ? "ВКЛ" : "ВЫКЛ");
+
+    ui->doubleSpinBox_24->setValue(appCore->cathode_block.control_cathode / 1000.0);
+    ui->doubleSpinBox_25->setValue(appCore->cathode_block.control_cathode
+                                   * appCore->coef.coef_u_cat_set / 1000000.0);
+    ui->doubleSpinBox_26->setValue(appCore->cathode_block.measure_cathode / 1000.0);
+    ui->doubleSpinBox_16->setValue(appCore->cathode_block.measure_cathode
+                                   * appCore->coef.coef_u_cat_meas / 1000000.0);
+
+    // Impulse values
+    ui->doubleSpinBox_2->setValue(appCore->energy_block.impulse / 1000.0);
+    ui->doubleSpinBox_7->setValue(appCore->cathode_block.impulse_i / 1000.0);
+    ui->doubleSpinBox_6->setValue(appCore->cathode_block.impulse_u / 1000.0);
+}
+
+void MainWindow::updateChart(const QVector<QPointF> &points)
+{
+    if (my_chart && ui->tabWidget->currentIndex() == 1) {
+        my_chart->DrawChart(points);
+
+        // Добавление маркеров импульсов
+        if (!signalProcessor->origin_time.isEmpty()) {
             switch (ui->comboBox_2->currentIndex()) {
             case 0:
-                my_core->energy_block.impulse
-                    = (my_core->energy_block.impulse
-                       + processor->origin_data[my_core->energy_block.impulse_pos])
-                      / 2;
+                if (appCore->energy_block.impulse_pos < signalProcessor->origin_time.size()) {
+                    my_chart->DrawAverage(
+                        QPointF(signalProcessor->origin_time[appCore->energy_block.impulse_pos]
+                                    / 1000.0,
+                                appCore->energy_block.impulse));
+                }
                 break;
             case 1:
-                my_core->cathode_block.impulse_i
-                    = (my_core->cathode_block.impulse_i
-                       + processor->origin_data[my_core->cathode_block.impulse_i_pos])
-                      / 2;
+                if (appCore->cathode_block.impulse_i_pos < signalProcessor->origin_time.size()) {
+                    my_chart->DrawAverage(
+                        QPointF(signalProcessor->origin_time[appCore->cathode_block.impulse_i_pos]
+                                    / 1000.0,
+                                appCore->cathode_block.impulse_i));
+                }
                 break;
             case 2:
-                my_core->cathode_block.impulse_u
-                    = (my_core->cathode_block.impulse_u
-                       + processor->origin_data[my_core->cathode_block.impulse_u_pos])
-                      / 2;
+                if (appCore->cathode_block.impulse_u_pos < signalProcessor->origin_time.size()) {
+                    my_chart->DrawAverage(
+                        QPointF(signalProcessor->origin_time[appCore->cathode_block.impulse_u_pos]
+                                    / 1000.0,
+                                appCore->cathode_block.impulse_u));
+                }
                 break;
             }
-            if (ui->tabWidget->currentIndex() == 1)
-                emit requestChartUpdate(processor->GetPoints());
         }
-    }
-    delete queue;
-    if (my_core->StopADCBytes() == 0) {
-        StateADC = false;
-        QMetaObject::invokeMethod(this, task, Qt::QueuedConnection);
     }
 }
 
-void MainWindow::startModbusUpdateThread()
+void MainWindow::onDataProcessed(List<PackageBuf> *queue, int samples, int averaging)
 {
-    if (modbusThread.joinable())
+    if (!queue) {
         return;
+    }
+    signalProcessor->setData(queue);
+    signalProcessor->RawDataToData(samples, averaging);
+    QVector<QPointF> points = signalProcessor->GetPoints();
 
-    abortModbusFlag = false;
-    modbusThread = std::thread([this]() {
-        while (!abortModbusFlag.load()) {
-            if (my_core->conn_status == CONNECTED) {
-                if (my_core->UpdateValues() == 0) {
-                    QMetaObject::invokeMethod(
-                        this,
-                        [this]() {
-                            if (ui->tabWidget->currentIndex() == 0) {
-                                UpdateScreenValues();
-                            }
-                        },
-                        Qt::QueuedConnection);
-                } else {
-                    QMetaObject::invokeMethod(
-                        this,
-                        [this]() {
-                            HasBeenDisconnected();
-                            ui->label_4->setText("Соединение отсутствует");
-                        },
-                        Qt::QueuedConnection);
-                }
+    updateChart(points);
+
+    updateImpulseValues();
+    delete queue;
+}
+
+void MainWindow::updateImpulseValues()
+{
+    if (!signalProcessor->origin_data.isEmpty()) {
+        int current_channel = appCore->current_channel;
+
+        switch (current_channel) {
+        case 1: // Импульс У.Э.
+            if (appCore->energy_block.impulse_pos < signalProcessor->origin_data.size()) {
+                uint16_t new_value = signalProcessor->origin_data[appCore->energy_block.impulse_pos];
+                appCore->energy_block.impulse = (appCore->energy_block.impulse + new_value) / 2;
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(700));
+            break;
+        case 2: // Импульс I К.
+            if (appCore->cathode_block.impulse_i_pos < signalProcessor->origin_data.size()) {
+                uint16_t new_value = signalProcessor
+                                         ->origin_data[appCore->cathode_block.impulse_i_pos];
+                appCore->cathode_block.impulse_i = (appCore->cathode_block.impulse_i + new_value)
+                                                   / 2;
+            }
+            break;
+        case 3: // Импульс U К.
+            if (appCore->cathode_block.impulse_u_pos < signalProcessor->origin_data.size()) {
+                uint16_t new_value = signalProcessor
+                                         ->origin_data[appCore->cathode_block.impulse_u_pos];
+                appCore->cathode_block.impulse_u = (appCore->cathode_block.impulse_u + new_value)
+                                                   / 2;
+            }
+            break;
         }
-    });
-}
-
-void MainWindow::stopModbusUpdateThread()
-{
-    abortModbusFlag = true;
-    if (modbusThread.joinable()) {
-        modbusThread.join();
     }
 }
 
-void MainWindow::on_pushButton_6_clicked()
+void MainWindow::showErrMsgBox(const char *title, const char *msg)
 {
-    my_core->energy_block.impulse = 0;
-    my_core->cathode_block.impulse_i = 0;
-    my_core->cathode_block.impulse_u = 0;
-    if (StateADC) {
-        adcThreadStop();
-        processor->ClearData();
-        adcThreadStart();
-    } else
-        processor->ClearData();
-    emit requestChartUpdate(processor->GetPoints());
+    msgBox->setWindowTitle(title);
+    msgBox->setText(msg);
+    msgBox->setStandardButtons(QMessageBox::Ok);
+    msgBox->setStyleSheet("QLabel{font-size: 16px;}");
+    msgBox->exec();
 }
 
-void MainWindow::on_comboBox_2_currentIndexChanged(int index)
+void MainWindow::updateImpulsePosition(int channelIndex)
 {
-    switch (index) {
-    case 0: {
-        QSignalBlocker blocker1(ui->horizontalSlider);
-        QSignalBlocker blocker2(ui->doubleSpinBox);
-        ui->doubleSpinBox->setValue(my_core->energy_block.impulse_pos / (double) STM32_TIM_FREQ);
-        ui->horizontalSlider->setValue(my_core->energy_block.impulse_pos);
-        break;
-    }
-    case 1: {
-        QSignalBlocker blocker1(ui->horizontalSlider);
-        QSignalBlocker blocker2(ui->doubleSpinBox);
-        ui->doubleSpinBox->setValue(my_core->cathode_block.impulse_i_pos / (double) STM32_TIM_FREQ);
-        ui->horizontalSlider->setValue(my_core->cathode_block.impulse_i_pos);
-        break;
-    }
+    QSignalBlocker blocker1(ui->horizontalSlider);
+    QSignalBlocker blocker2(ui->doubleSpinBox);
 
-    case 2: {
-        QSignalBlocker blocker1(ui->horizontalSlider);
-        QSignalBlocker blocker2(ui->doubleSpinBox);
-        ui->doubleSpinBox->setValue(my_core->cathode_block.impulse_u_pos / (double) STM32_TIM_FREQ);
-        ui->horizontalSlider->setValue(my_core->cathode_block.impulse_u_pos);
+    switch (channelIndex) {
+    case 0:
+        ui->doubleSpinBox->setValue(appCore->energy_block.impulse_pos / (double) STM32_TIM_FREQ);
+        ui->horizontalSlider->setValue(appCore->energy_block.impulse_pos);
+        break;
+    case 1:
+        ui->doubleSpinBox->setValue(appCore->cathode_block.impulse_i_pos / (double) STM32_TIM_FREQ);
+        ui->horizontalSlider->setValue(appCore->cathode_block.impulse_i_pos);
+        break;
+    case 2:
+        ui->doubleSpinBox->setValue(appCore->cathode_block.impulse_u_pos / (double) STM32_TIM_FREQ);
+        ui->horizontalSlider->setValue(appCore->cathode_block.impulse_u_pos);
         break;
     }
+}
+
+void MainWindow::updateChannelLabels(int channelIndex)
+{
+    switch (channelIndex) {
+    case 0:
+        ui->label_15->setText("Импульс (выбран)");
+        ui->label_18->setText("Импульс I");
+        ui->label_16->setText("Импульс U");
+        break;
+    case 1:
+        ui->label_18->setText("Импульс I (выбран)");
+        ui->label_16->setText("Импульс U");
+        ui->label_15->setText("Импульс");
+        break;
+    case 2:
+        ui->label_16->setText("Импульс U (выбран)");
+        ui->label_15->setText("Импульс");
+        ui->label_18->setText("Импульс I");
+        break;
     }
 }

@@ -1,6 +1,3 @@
-/*************************************************
- *  manager.h  —  поток-приёмник UART             *
- *************************************************/
 #ifndef MANAGER_H
 #define MANAGER_H
 
@@ -13,16 +10,17 @@
 #include <queue>
 #include <thread>
 
-#define MAX_ADC_BUFFER_SIZE 2048 // полезные байты одного ADC-кадра
-#define MAX_MB_BUFFER_SIZE 128   // максимальный размер Modbus-кадра
-#define RXBUF_HWM 8192           // high-water-mark накопительного буфера
-#define RXBUF_TRIM 4096          // срез, если буфер перерос HWM
-
+#define MAX_ADC_BUFFER_SIZE 2048
+#define MAX_MB_BUFFER_SIZE 128
+#define RXBUF_HWM 8192
+#define RXBUF_TRIM 4096
 #define SLAVE_ID_MB 10
 #define ADC_START_1 0xAA
 #define ADC_START_2 0x55
 
-class Manager // экземлпяр в динам память
+using PackageBuf = Package<uint8_t>;
+
+class Manager
 {
 public:
     Manager();
@@ -30,18 +28,16 @@ public:
 
     int start();
     int stop();
-    int open(const char *, int, SerialParity, SerialDataBits, SerialStopBits);
+    int open(const char *dev, int br, SerialParity p, SerialDataBits db, SerialStopBits sb);
     void close();
-    void queueWrite(std::unique_ptr<Package<uint8_t>> pack);
-
-    std::unique_ptr<Package<uint8_t>> getADCpackage();
-    std::unique_ptr<Package<uint8_t>> getMBpackage();
+    void queueWrite(std::unique_ptr<PackageBuf> pack);
+    std::unique_ptr<PackageBuf> getADCpackage();
+    std::unique_ptr<PackageBuf> getMBpackage();
     void clearADClst();
     void clearMBlst();
 
 private:
     int main_loop();
-
     bool extractADC(std::deque<uint8_t> &buf);
     bool extractModbus(std::deque<uint8_t> &buf);
 
@@ -52,17 +48,18 @@ private:
 
     std::mutex mtxMB;
     std::mutex mtxADC;
-    std::queue<std::unique_ptr<Package<uint8_t>>> writeQueue;
+    std::queue<std::unique_ptr<PackageBuf>> writeQueue;
     std::mutex mtxWriteQueue;
 
-    const char *device;
-    int baud_rate;
-    SerialParity parity;
-    SerialDataBits data_bits;
-    SerialStopBits stop_bits;
+    // Добавляем отсутствующие поля
+    const char *device = nullptr;
+    int baud_rate = 115200;
+    SerialParity parity = SERIAL_PARITY_NONE;
+    SerialDataBits data_bits = SERIAL_DATABITS_8;
+    SerialStopBits stop_bits = SERIAL_STOPBITS_1;
 
-    List<Package<uint8_t>> lstADC;
-    List<Package<uint8_t>> lstMB;
+    List<PackageBuf> lstADC;
+    List<PackageBuf> lstMB;
 };
 
 #endif /* MANAGER_H */

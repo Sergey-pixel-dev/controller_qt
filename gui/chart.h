@@ -1,20 +1,25 @@
 #ifndef CHART_H
 #define CHART_H
+
+#include <QChart>
+#include <QLineSeries>
+#include <QPointF>
 #include <QSlider>
+#include <QValueAxis>
 #include <QVector>
-#include <QtCharts/QChart>
 #include <QtCharts/QChartView>
-#include <QtCharts/QScatterSeries>
-#include <QtCharts/QSplineSeries>
-#include <QtCharts/QValueAxis>
-class Chart : public QChart
+
+class Chart : public QObject // Наследуемся от QObject для слотов
 {
+    Q_OBJECT
+
 public:
-    void DrawChart(QVector<QPointF> &points);
-    void DrawAverage(QPointF average_point);
+    void DrawChart(const QVector<QPointF> &points); // Изменено на const &
+    void DrawAverage(const QPointF &average_point); // Тоже лучше сделать const
     QChart *GetChart();
     Chart(QSlider *slider);
     ~Chart();
+
     QSlider *slider;
     QValueAxis *axisX;
     QValueAxis *axisY;

@@ -159,6 +159,19 @@
        </widget>
       </item>
       <item>
+       <widget class="QLabel" name="label_47">
+        <property name="font">
+         <font>
+          <pointsize>15</pointsize>
+          <italic>true</italic>
+         </font>
+        </property>
+        <property name="text">
+         <string>Оцифровка остановлена</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <spacer name="horizontalSpacer_6">
         <property name="orientation">
          <enum>Qt::Orientation::Horizontal</enum>
@@ -195,8 +208,8 @@
            <property name="geometry">
             <rect>
              <x>0</x>
-             <y>0</y>
-             <width>967</width>
+             <y>-199</y>
+             <width>955</width>
              <height>917</height>
             </rect>
            </property>
@@ -1109,7 +1122,7 @@
                       </font>
                      </property>
                      <property name="text">
-                      <string>Средняя точка #1</string>
+                      <string>Импульс (выбран)</string>
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -1592,7 +1605,7 @@
                       </font>
                      </property>
                      <property name="text">
-                      <string>Средняя точка #2</string>
+                      <string>Импульс U</string>
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -1608,7 +1621,7 @@
                       </font>
                      </property>
                      <property name="text">
-                      <string>Средняя точка #1</string>
+                      <string>Импульс I</string>
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignmentFlag::AlignCenter</set>

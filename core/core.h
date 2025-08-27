@@ -1,8 +1,13 @@
 #ifndef CORE_H
 #define CORE_H
+
+#include <QObject>
 #include "manager.h"
 #include "modbus.h"
-#include <cstdint>
+#include <atomic>
+#include <cstring>
+#include <thread>
+
 enum CONN_STATUS_ENUM {
     DISCONNECTED,
     CONNECTED,
@@ -17,6 +22,7 @@ struct heater_block_struct
     uint16_t measure_u;
     uint16_t control_i;
 };
+
 struct energy_block_struct
 {
     bool IsEnabled;
@@ -29,6 +35,7 @@ struct energy_block_struct
     uint16_t impulse;
     int impulse_pos;
 };
+
 struct cathode_block_struct
 {
     bool IsEnabled;
@@ -52,6 +59,7 @@ struct coef_struct
     float coef_u_cat_set;
     float coef_u_cat_meas;
 };
+
 enum enum_model {
     DM25_400,
     DM25_401,
@@ -66,51 +74,77 @@ struct start_signal_struct
     uint16_t interval;
 };
 
-class core
+class core : public QObject
 {
+    Q_OBJECT
+
 private:
     start_signal_struct start_signal;
+    Manager *mngr;
+    ModbusClient *mb_cli;
 
-public:
-    int UpdateValues();
+    // Потоки управления
+    std::thread adcThread;
+    std::thread modbusThread;
+    std::atomic<bool> abortFlag{false};
+    std::atomic<bool> abortModbusFlag{false};
+    std::atomic<bool> stateADC{false};
 
-    void close_modbus();
-    void fill_std_values();
-    void fill_coef();
+    void adcThreadLoop();
+    void modbusUpdateLoop();
+    void startModbusUpdateThread();
+    void stopModbusUpdateThread();
     int load_timers_param();
 
-    int StartADCBytes(int channel);
-    std::unique_ptr<Package<uint8_t>> GetADCBytes(); // блокирующий
-    int StopADCBytes();
+public:
+    explicit core(QObject *parent = nullptr);
+    ~core();
 
-    int StartSignals();
-    int StopSignals();
-    int SetSignals(start_signal_struct);
-    start_signal_struct GetSignals();
-
-    int open(const char *dev, int br, SerialParity par, SerialDataBits db, SerialStopBits sb);
-    void close();
-    int startManager();
-    int stopManager();
-    void clearADCbuf();
-    void clearMBbuf();
-
+    // Основные структуры данных
     heater_block_struct heater_block;
     energy_block_struct energy_block;
     cathode_block_struct cathode_block;
     enum_model current_model;
     coef_struct coef;
     CONN_STATUS_ENUM conn_status;
-
     int n_samples;
     int averaging;
+    int current_channel = 1;
 
-    core();
-    ~core();
+    // Методы подключения
+    int connectDevice(const QString &port, int baudRate = 115200);
+    void disconnectDevice();
+    bool isConnected() const;
 
-private:
-    Manager *mngr;
-    ModbusClient *mb_cli;
+    // Методы управления АЦП
+    int startADC(int channel);
+    void stopADC();
+    bool isADCRunning() const;
+
+    // Методы управления сигналами (убираем дублирование!)
+    int startSignals();
+    int stopSignals();
+    int setSignals(const start_signal_struct &signal);
+    start_signal_struct getSignals() const;
+
+    // Основные методы работы
+    void fill_std_values();
+    void fill_coef();
+    int UpdateValues();
+
+    // Низкоуровневые методы (для внутреннего использования)
+    int open(const char *dev, int br, SerialParity par, SerialDataBits db, SerialStopBits sb);
+    void close();
+    int startManager();
+    int stopManager();
+    void clearADCbuf();
+    void clearMBbuf();
+    int StartADCBytes(int channel);
+    std::unique_ptr<PackageBuf> GetADCBytes();
+    int StopADCBytes();
+
+signals:
+    void adcDataReady(List<PackageBuf> *queue, int samples, int averaging);
 };
 
 #endif // CORE_H

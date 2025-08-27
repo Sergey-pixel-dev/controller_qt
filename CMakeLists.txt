@@ -26,6 +26,9 @@ list(FILTER PROJECT_SOURCES EXCLUDE REGEX "build/.*")
 
 # Создание исполняемого файла
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
+    find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt6 REQUIRED COMPONENTS Core)
+
     qt_add_executable(controller_qt
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
@@ -46,6 +49,8 @@ target_link_libraries(controller_qt PRIVATE
     Qt${QT_VERSION_MAJOR}::Charts
     Qt${QT_VERSION_MAJOR}::SerialPort
 )
+target_link_libraries(controller_qt PRIVATE Qt6::Core)
+target_link_libraries(controller_qt PRIVATE Qt6::Core)
 
 
 # Настройки для разных платформ

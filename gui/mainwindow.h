@@ -1,16 +1,21 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
+
+#include <QCloseEvent>
 #include <QMainWindow>
 #include <QMessageBox>
-#include <QMouseEvent>
 #include <QSerialPortInfo>
-#include <QThread>
+#include <QSignalBlocker>
 #include <QTimer>
+#include <QVariant>
+#include <cmath>
+
 #include "../core/core.h"
 #include "../core/signalprocessor.h"
 #include "../helping/common_macro.h"
+#include "../helping/errors.h"
 #include "chart.h"
-#include <thread>
+
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
@@ -27,63 +32,56 @@ public:
 
 protected:
     void closeEvent(QCloseEvent *event) override;
+
 private slots:
+    // UI события
     void on_button_connect_clicked();
-    void slotTimerAlarm();
-    void on_comboBox_activated(int index);
+    void on_pushButton_clicked();   // Установить сигналы
+    void on_pushButton_2_clicked(); // Старт/стоп оцифровки
+    void on_pushButton_3_clicked(); // Обновить порты
+    void on_pushButton_6_clicked(); // Очистить данные
     void on_checkBox_checkStateChanged(const Qt::CheckState &arg1);
-    void on_pushButton_clicked();
     void on_tabWidget_currentChanged(int index);
 
-    void on_pushButton_2_clicked();
+    // Комбобоксы
+    void on_comboBox_activated(int index);             // Модель устройства
+    void on_comboBox_2_currentIndexChanged(int index); // Канал измерения
+    void on_comboBox_3_currentIndexChanged(int index); // Серийный порт
+    void on_comboBox_4_currentIndexChanged(int index); // Усреднение
+    void on_comboBox_6_currentIndexChanged(int index); // Время измерения
+    void on_comboBox_7_currentIndexChanged(int index); // Фильтр
 
-    void on_pushButton_3_clicked();
-
-    void on_comboBox_3_currentIndexChanged(int index);
-
+    // Элементы управления позицией импульса
     void on_doubleSpinBox_valueChanged(double arg1);
-
     void on_horizontalSlider_valueChanged(int value);
     void on_doubleSpinBox_editingFinished();
-    void on_pushButton_5_clicked();
-    void on_comboBox_6_currentIndexChanged(int index);
-    void on_comboBox_4_currentIndexChanged(int index);
-    void on_comboBox_7_currentIndexChanged(int index);
 
-    void adcThreadLoop();
-    void handleThreadResult();
-    void updateChart(QVector<QPointF> points);
-    void adcThreadStop();
-    void adcThreadStart();
-    void startModbusUpdateThread();
-    void stopModbusUpdateThread();
-    void on_pushButton_6_clicked();
-
-    void on_comboBox_2_currentIndexChanged(int index);
-
-signals:
-    void requestChartUpdate(QVector<QPointF> points);
+    // Асинхронные обновления
+    void updateScreenValues();
+    void updateChart(const QVector<QPointF> &points);
+    void onDataProcessed(List<PackageBuf> *queue, int samples, int averaging);
 
 private:
-    void UpdateScreenValues();
-    void HasBeenConnected();
-    void HasBeenDisconnected();
-    QByteArray kostil_name_device;
-    SignalProcessor *processor;
-    QTimer *timer;
-    core *my_core;
-    int count;
-    QMessageBox *msgBox;
-    Ui::MainWindow *ui;
-    Chart *my_chart;
-
-    std::thread adcThread;
-    std::atomic<bool> abortFlag{false};
-
-    std::thread modbusThread;
-    std::atomic<bool> abortModbusFlag{false};
-
-    bool StateADC;
+    void setupUI();
+    void connectSignals();
     void showErrMsgBox(const char *title, const char *msg);
+    void updateImpulsePosition(int channelIndex);
+    void updateChannelLabels(int channelIndex);
+
+    // Вспомогательные методы для управления состоянием
+    void loadSignalParameters();
+    void setDisconnectedState();
+    void handleMeasurementResult(MeasurementResult result);
+    void setMeasurementStartedState();
+    void setMeasurementStoppedState();
+    void updateImpulseValues();
+
+    Ui::MainWindow *ui;
+    core *appCore;
+    SignalProcessor *signalProcessor;
+    Chart *my_chart;
+    QMessageBox *msgBox;
+    QTimer *updateTimer;
 };
+
 #endif // MAINWINDOW_H
