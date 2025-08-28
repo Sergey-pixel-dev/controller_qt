@@ -2,11 +2,28 @@
 #define CORE_H
 
 #include <QObject>
+#include <QTimer>
 #include "manager.h"
 #include "modbus.h"
 #include <atomic>
-#include <cstring>
+#include <mutex>
 #include <thread>
+
+// MODBUS определения
+#define SLAVE_ID 10
+
+#define ILLEGAL_FUNCTION 0x01
+#define ILLEGAL_DATA_ADDRESS 0x02
+#define ILLEGAL_DATA_VALUE 0x03
+
+#define REG_INPUT_START 31001
+#define REG_HOLDING_START 41001
+#define COILS_START 00001
+#define DISCRETE_START 10001
+#define COILS_N 2
+#define DISCRETE_N 5
+#define REG_INPUT_NREGS 9
+#define REG_HOLDING_NREGS 4
 
 enum CONN_STATUS_ENUM {
     DISCONNECTED,
@@ -73,7 +90,12 @@ struct start_signal_struct
     uint16_t duration;
     uint16_t interval;
 };
-
+struct adc_settings_struct
+{
+    int n_samples; // количество отсчётов
+    int averaging; // усреднение
+    int channel;   // текущий канал
+};
 class core : public QObject
 {
     Q_OBJECT
@@ -82,6 +104,14 @@ private:
     start_signal_struct start_signal;
     Manager *mngr;
     ModbusClient *mb_cli;
+
+    // MODBUS регистры
+    uint16_t usRegInputBuf[REG_INPUT_NREGS];     // index 0-8: входы IN0-IN8
+    uint16_t usRegHoldingBuf[REG_HOLDING_NREGS]; // 0-HZ, 1-длительность, 2-channel АЦП, 3-n_samples
+    uint16_t usCoilsBuf[1];                      // bit 0-ВКЛ ИМПУЛЬС, bit 1-ВКЛ АЦП
+    uint16_t usDiscreteBuf[1];                   // bits 0-4: НАКАЛ,У.Э.,-25кВ,HE,LE
+
+    std::mutex modbus_mutex; // Для синхронизации доступа к регистрам
 
     // Потоки управления
     std::thread adcThread;
@@ -94,7 +124,11 @@ private:
     void modbusUpdateLoop();
     void startModbusUpdateThread();
     void stopModbusUpdateThread();
-    int load_timers_param();
+
+    // Синхронизация MODBUS регистров
+    void syncRegistersWithDevice();
+    void updateStructuresFromRegisters();
+    void initialSyncFromDevice(); // Для первого подключения
 
 public:
     explicit core(QObject *parent = nullptr);
@@ -104,12 +138,10 @@ public:
     heater_block_struct heater_block;
     energy_block_struct energy_block;
     cathode_block_struct cathode_block;
+    adc_settings_struct adc_settings;
     enum_model current_model;
     coef_struct coef;
     CONN_STATUS_ENUM conn_status;
-    int n_samples;
-    int averaging;
-    int current_channel = 1;
 
     // Методы подключения
     int connectDevice(const QString &port, int baudRate = 115200);
@@ -121,7 +153,7 @@ public:
     void stopADC();
     bool isADCRunning() const;
 
-    // Методы управления сигналами (убираем дублирование!)
+    // Методы управления сигналами
     int startSignals();
     int stopSignals();
     int setSignals(const start_signal_struct &signal);
@@ -130,7 +162,6 @@ public:
     // Основные методы работы
     void fill_std_values();
     void fill_coef();
-    int UpdateValues();
 
     // Низкоуровневые методы (для внутреннего использования)
     int open(const char *dev, int br, SerialParity par, SerialDataBits db, SerialStopBits sb);
@@ -139,12 +170,11 @@ public:
     int stopManager();
     void clearADCbuf();
     void clearMBbuf();
-    int StartADCBytes(int channel);
-    std::unique_ptr<PackageBuf> GetADCBytes();
-    int StopADCBytes();
+    std::unique_ptr<Package<uint8_t>> GetADCBytes();
 
 signals:
-    void adcDataReady(List<PackageBuf> *queue, int samples, int averaging);
+    void adcDataReady(List<Package<uint8_t>> *queue, int samples, int averaging);
+    void dataUpdated(); // Новый сигнал для обновления UI
 };
 
 #endif // CORE_H

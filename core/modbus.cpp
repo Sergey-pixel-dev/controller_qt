@@ -24,12 +24,12 @@ int ModbusClient::ReadInputRegisters(uint16_t *buf,
     mngr->clearMBlst();
     mngr->queueWrite(std::move(pack1));
 
-    std::unique_ptr<Package<uint8_t>> pack2 = nullptr;
+    std::unique_ptr<Package<uint8_t>> response = nullptr;
     auto start_time = std::chrono::steady_clock::now();
 
-    while (pack2 == nullptr) {
-        pack2 = mngr->getMBpackage();
-        if (pack2 != nullptr) {
+    while (response == nullptr) {
+        response = mngr->getMBpackage();
+        if (response != nullptr) {
             break;
         }
 
@@ -39,20 +39,20 @@ int ModbusClient::ReadInputRegisters(uint16_t *buf,
         }
     }
 
-    if (pack2->packageBuf[0] != SLAVE_ID)
+    if (response->packageBuf[0] != SLAVE_ID)
         return -1;
 
-    if (pack2->packageBuf[1] == (0x04 | 0x80))
-        return pack2->packageBuf[2];
+    if (response->packageBuf[1] == (0x04 | 0x80))
+        return response->packageBuf[2];
 
-    int bytes_count = pack2->packageBuf[2];
+    int bytes_count = response->packageBuf[2];
 
-    if (crc16(pack2->packageBuf, 3 + bytes_count)
-        != ((pack2->packageBuf[4 + bytes_count] << 8) | pack2->packageBuf[3 + bytes_count]))
+    if (crc16(response->packageBuf, 3 + bytes_count)
+        != ((response->packageBuf[4 + bytes_count] << 8) | response->packageBuf[3 + bytes_count]))
         return -2;
 
     for (int i = 0; i < bytes_count / 2; i++) {
-        buf[i] = (pack2->packageBuf[3 + 2 * i] << 8) | pack2->packageBuf[4 + 2 * i];
+        buf[i] = (response->packageBuf[3 + 2 * i] << 8) | response->packageBuf[4 + 2 * i];
     }
 
     return NbReg;

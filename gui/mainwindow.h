@@ -57,7 +57,6 @@ private slots:
     void on_doubleSpinBox_editingFinished();
 
     // Асинхронные обновления
-    void updateScreenValues();
     void updateChart(const QVector<QPointF> &points);
     void onDataProcessed(List<PackageBuf> *queue, int samples, int averaging);
 
@@ -69,19 +68,18 @@ private:
     void updateChannelLabels(int channelIndex);
 
     // Вспомогательные методы для управления состоянием
-    void loadSignalParameters();
     void setDisconnectedState();
     void handleMeasurementResult(MeasurementResult result);
     void setMeasurementStartedState();
     void setMeasurementStoppedState();
     void updateImpulseValues();
+    void updateScreenValues();
 
     Ui::MainWindow *ui;
     core *appCore;
     SignalProcessor *signalProcessor;
     Chart *my_chart;
     QMessageBox *msgBox;
-    QTimer *updateTimer;
 };
 
 #endif // MAINWINDOW_H

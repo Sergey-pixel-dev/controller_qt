@@ -8,7 +8,6 @@ MainWindow::MainWindow(QWidget *parent)
     , signalProcessor(nullptr)
     , my_chart(nullptr)
     , msgBox(nullptr)
-    , updateTimer(nullptr)
 {
     ui->setupUi(this);
 
@@ -17,7 +16,6 @@ MainWindow::MainWindow(QWidget *parent)
     signalProcessor = new SignalProcessor();
     my_chart = new Chart(ui->horizontalSlider);
     msgBox = new QMessageBox(this);
-    updateTimer = new QTimer(this);
 
     setupUI();
     connectSignals();
@@ -89,8 +87,8 @@ void MainWindow::connectSignals()
     // Связываем ADC поток с обработчиком данных
     connect(appCore, &core::adcDataReady, this, &MainWindow::onDataProcessed);
 
-    // Периодическое обновление UI (данные с устройства)
-    connect(updateTimer, &QTimer::timeout, this, &MainWindow::updateScreenValues);
+    // Связываем обновление данных с обновлением UI
+    connect(appCore, &core::dataUpdated, this, &MainWindow::updateScreenValues);
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -116,12 +114,6 @@ void MainWindow::on_button_connect_clicked()
             ui->pushButton_2->setEnabled(true);
             ui->checkBox->setEnabled(true);
             ui->label_4->setText("Соединение установлено");
-
-            // Загружаем параметры сигналов
-            loadSignalParameters();
-
-            // Запускаем периодическое обновление
-            updateTimer->start(1000);
             break;
 
         case ConnectResult::AlreadyConnected:
@@ -141,7 +133,6 @@ void MainWindow::on_button_connect_clicked()
             break;
         }
     } else {
-        updateTimer->stop();
         appCore->disconnectDevice();
         setDisconnectedState();
     }
@@ -185,7 +176,7 @@ void MainWindow::on_checkBox_checkStateChanged(const Qt::CheckState &arg1)
             break;
 
         default:
-            showErrMsgBox("Ошибка", "Не удалось запустить сигналы");
+            //showErrMsgBox("Ошибка", "Не удалось запустить сигналы");
             ui->checkBox->setCheckState(Qt::Unchecked);
             break;
         }
@@ -285,8 +276,7 @@ void MainWindow::on_comboBox_4_currentIndexChanged(int index)
         appCore->stopADC();
     }
 
-    appCore->averaging = pow(4, index);
-
+    appCore->adc_settings.averaging = pow(4, index); // ИСПОЛЬЗУЕМ СТРУКТУРУ
     if (wasRunning) {
         appCore->startADC(ui->comboBox_2->currentIndex() + 1);
     }
@@ -301,16 +291,16 @@ void MainWindow::on_comboBox_6_currentIndexChanged(int index)
 
     switch (index) {
     case 0:
-        appCore->n_samples = 8;
+        appCore->adc_settings.n_samples = 8; // ИСПОЛЬЗУЕМ СТРУКТУРУ
         my_chart->axisX->setRange(0, 3);
         break;
     case 1:
-        appCore->n_samples = 16;
+        appCore->adc_settings.n_samples = 16; // ИСПОЛЬЗУЕМ СТРУКТУРУ
         my_chart->axisX->setRange(0, 6);
         break;
     case 2:
     default:
-        appCore->n_samples = 24;
+        appCore->adc_settings.n_samples = 24; // ИСПОЛЬЗУЕМ СТРУКТУРУ
         my_chart->axisX->setRange(0, 9);
         break;
     }
@@ -319,7 +309,6 @@ void MainWindow::on_comboBox_6_currentIndexChanged(int index)
         appCore->startADC(ui->comboBox_2->currentIndex() + 1);
     }
 }
-
 void MainWindow::on_comboBox_7_currentIndexChanged(int index)
 {
     switch (index) {
@@ -393,16 +382,6 @@ void MainWindow::on_tabWidget_currentChanged(int index)
 }
 
 // Private helper methods
-void MainWindow::loadSignalParameters()
-{
-    start_signal_struct signal = appCore->getSignals();
-    ui->spinBox->setValue(signal.frequency);
-    ui->doubleSpinBox_27->setValue(signal.duration / 10.0);
-    ui->spinBox_2->setValue(signal.interval);
-    ui->checkBox->setCheckState(signal.IsEnabled ? Qt::Checked : Qt::Unchecked);
-    ui->checkBox->setText(signal.IsEnabled ? "ВКЛ" : "ВЫКЛ");
-}
-
 void MainWindow::setDisconnectedState()
 {
     ui->button_connect->setText("Подключить");
@@ -410,6 +389,7 @@ void MainWindow::setDisconnectedState()
     ui->pushButton_2->setEnabled(false);
     ui->checkBox->setEnabled(false);
     ui->label_4->setText("Соединение отсутствует");
+    setMeasurementStoppedState();
 
     // Сброс параметров
     ui->doubleSpinBox_27->setValue(0.0);
@@ -510,6 +490,17 @@ void MainWindow::updateScreenValues()
     ui->doubleSpinBox_2->setValue(appCore->energy_block.impulse / 1000.0);
     ui->doubleSpinBox_7->setValue(appCore->cathode_block.impulse_i / 1000.0);
     ui->doubleSpinBox_6->setValue(appCore->cathode_block.impulse_u / 1000.0);
+
+    //Signals values
+    {
+        QSignalBlocker blocker(ui->checkBox);
+        start_signal_struct signal = appCore->getSignals();
+        ui->spinBox->setValue(signal.frequency);
+        ui->doubleSpinBox_27->setValue(signal.duration / 10.0);
+        ui->spinBox_2->setValue(signal.interval);
+        ui->checkBox->setCheckState(signal.IsEnabled ? Qt::Checked : Qt::Unchecked);
+        ui->checkBox->setText(signal.IsEnabled ? "ВКЛ" : "ВЫКЛ");
+    }
 }
 
 void MainWindow::updateChart(const QVector<QPointF> &points)
@@ -567,7 +558,7 @@ void MainWindow::onDataProcessed(List<PackageBuf> *queue, int samples, int avera
 void MainWindow::updateImpulseValues()
 {
     if (!signalProcessor->origin_data.isEmpty()) {
-        int current_channel = appCore->current_channel;
+        int current_channel = appCore->adc_settings.channel;
 
         switch (current_channel) {
         case 1: // Импульс У.Э.

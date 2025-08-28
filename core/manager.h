@@ -31,8 +31,8 @@ public:
     int open(const char *dev, int br, SerialParity p, SerialDataBits db, SerialStopBits sb);
     void close();
     void queueWrite(std::unique_ptr<PackageBuf> pack);
-    std::unique_ptr<PackageBuf> getADCpackage();
-    std::unique_ptr<PackageBuf> getMBpackage();
+    std::unique_ptr<PackageBuf> getADCpackage(int timeout = 0);
+    std::unique_ptr<PackageBuf> getMBpackage(int timeout = 0);
     void clearADClst();
     void clearMBlst();
 

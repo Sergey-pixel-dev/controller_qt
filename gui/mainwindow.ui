@@ -208,7 +208,7 @@
            <property name="geometry">
             <rect>
              <x>0</x>
-             <y>-199</y>
+             <y>0</y>
              <width>955</width>
              <height>917</height>
             </rect>
@@ -1222,6 +1222,9 @@
                      <property name="alignment">
                       <set>Qt::AlignmentFlag::AlignCenter</set>
                      </property>
+                     <property name="readOnly">
+                      <bool>true</bool>
+                     </property>
                      <property name="decimals">
                       <number>3</number>
                      </property>
@@ -1404,6 +1407,9 @@
                      <property name="alignment">
                       <set>Qt::AlignmentFlag::AlignCenter</set>
                      </property>
+                     <property name="readOnly">
+                      <bool>true</bool>
+                     </property>
                      <property name="decimals">
                       <number>3</number>
                      </property>
@@ -1419,6 +1425,9 @@
                      </property>
                      <property name="alignment">
                       <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                     <property name="readOnly">
+                      <bool>true</bool>
                      </property>
                      <property name="decimals">
                       <number>3</number>

@@ -49,13 +49,13 @@ void Manager::queueWrite(std::unique_ptr<Package<uint8_t>> pack)
     writeQueue.push(std::move(pack));
 }
 
-std::unique_ptr<Package<uint8_t>> Manager::getADCpackage()
+std::unique_ptr<Package<uint8_t>> Manager::getADCpackage(int timeout)
 {
     std::lock_guard<std::mutex> lock(mtxADC);
     return lstADC.pop();
 }
 
-std::unique_ptr<Package<uint8_t>> Manager::getMBpackage()
+std::unique_ptr<Package<uint8_t>> Manager::getMBpackage(int timeout)
 {
     std::lock_guard<std::mutex> lock(mtxMB);
     return lstMB.pop();
@@ -185,7 +185,7 @@ int Manager::main_loop()
                 std::unique_ptr<Package<uint8_t>> pack = std::move(writeQueue.front());
                 writeQueue.pop();
                 sport.writeBytes(pack->packageBuf, pack->size);
-                std::this_thread::sleep_for(std::chrono::microseconds(2500));
+                std::this_thread::sleep_for(std::chrono::milliseconds(3));
             }
         }
 

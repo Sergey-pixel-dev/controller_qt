@@ -1,7 +1,7 @@
 #include "core.h"
-#include <QMetaObject>
+#include <QObject>
 #include "../helping/common_macro.h"
-#include <chrono>
+#include <cstring>
 
 core::core(QObject *parent)
     : QObject(parent)
@@ -11,8 +11,18 @@ core::core(QObject *parent)
     mb_cli->mngr = mngr;
     conn_status = DISCONNECTED;
     current_model = DM25_400;
-    n_samples = ADC_SAMPLES;
-    averaging = 1;
+
+    // Инициализация настроек АЦП
+    adc_settings.n_samples = ADC_SAMPLES;
+    adc_settings.averaging = 1;
+    adc_settings.channel = 1;
+
+    // Инициализация MODBUS регистров
+    memset(usRegInputBuf, 0, sizeof(usRegInputBuf));
+    memset(usRegHoldingBuf, 0, sizeof(usRegHoldingBuf));
+    memset(usCoilsBuf, 0, sizeof(usCoilsBuf));
+    memset(usDiscreteBuf, 0, sizeof(usDiscreteBuf));
+
     fill_std_values();
     fill_coef();
 }
@@ -25,7 +35,6 @@ core::~core()
         adcThread.join();
     if (modbusThread.joinable())
         modbusThread.join();
-
     delete mngr;
     delete mb_cli;
 }
@@ -34,7 +43,6 @@ int core::connectDevice(const QString &port, int baudRate)
 {
     if (conn_status == CONNECTED)
         return -1;
-
     if (open(port.toUtf8().constData(),
              baudRate,
              SERIAL_PARITY_NONE,
@@ -42,13 +50,10 @@ int core::connectDevice(const QString &port, int baudRate)
              SERIAL_STOPBITS_1)
         == 1) {
         if (startManager() == 0) {
-            if (UpdateValues() == 0) {
-                startModbusUpdateThread();
-                return 0;
-            } else {
-                disconnectDevice();
-                return -2;
-            }
+            initialSyncFromDevice();
+            updateStructuresFromRegisters();
+            startModbusUpdateThread();
+            return 0;
         } else {
             return -3;
         }
@@ -61,6 +66,23 @@ void core::disconnectDevice()
 {
     if (stateADC.load()) {
         stopADC();
+
+        // Ждем пока устройство действительно выключит АЦП
+        bool device_adc_stopped = false;
+        int attempts = 0;
+        const int max_attempts = 10;
+
+        while (!device_adc_stopped && attempts < max_attempts && conn_status == CONNECTED) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+            uint8_t device_coils[COILS_N];
+            if (mb_cli->ReadCoils(device_coils, COILS_START, COILS_N, 1000) == COILS_N) {
+                if ((device_coils[1] & 1) == 0) {
+                    device_adc_stopped = true;
+                }
+            }
+            attempts++;
+        }
     }
 
     stopModbusUpdateThread();
@@ -78,23 +100,24 @@ int core::startADC(int channel)
 {
     if (!isConnected())
         return -1;
-
     if (!start_signal.IsEnabled)
         return -2;
-
     if (stateADC.load())
         return -3;
 
     clearADCbuf();
-    current_channel = channel;
 
-    if (StartADCBytes(channel) != 0)
-        return -4;
+    // Устанавливаем регистры для АЦП
+    {
+        std::lock_guard<std::mutex> lock(modbus_mutex);
+        usRegHoldingBuf[2] = channel;                // канал АЦП
+        usRegHoldingBuf[3] = adc_settings.n_samples; // количество отсчетов
+        usCoilsBuf[0] |= (1 << 1);                   // ВКЛ АЦП (бит 1)
+    }
 
     abortFlag.store(false);
     stateADC.store(true);
     adcThread = std::thread(&core::adcThreadLoop, this);
-
     return 0;
 }
 
@@ -103,11 +126,16 @@ void core::stopADC()
     if (!stateADC.load())
         return;
 
+    // Выключаем АЦП в регистрах
+    {
+        std::lock_guard<std::mutex> lock(modbus_mutex);
+        usCoilsBuf[0] &= ~(1 << 1); // ВЫКЛ АЦП (бит 1)
+    }
+
     abortFlag.store(true);
     if (adcThread.joinable()) {
         adcThread.join();
     }
-
     stateADC.store(false);
 }
 
@@ -120,16 +148,16 @@ int core::startSignals()
 {
     if (conn_status != CONNECTED)
         return -1;
-
     if (!(start_signal.duration <= 150 && start_signal.frequency <= 9999
           && start_signal.duration > 0 && start_signal.frequency > 0)) {
         return -2;
     }
 
+    std::lock_guard<std::mutex> lock(modbus_mutex);
+
+    // Устанавливаем бит 0 (ВКЛ ИМПУЛЬС)
+    usCoilsBuf[0] |= 1;
     start_signal.IsEnabled = true;
-    uint8_t a = 1;
-    if (mb_cli->WriteCoils(&a, 1, 1, 1000) != 1)
-        return -3;
 
     return 0;
 }
@@ -139,11 +167,12 @@ int core::stopSignals()
     if (conn_status != CONNECTED)
         return -1;
 
-    uint8_t a = 0;
-    if (mb_cli->WriteCoils(&a, 1, 1, 1000) != 1)
-        return -3;
+    std::lock_guard<std::mutex> lock(modbus_mutex);
 
+    // Сбрасываем бит 0 (ВЫКЛ ИМПУЛЬС)
+    usCoilsBuf[0] &= ~1;
     start_signal.IsEnabled = false;
+
     return 0;
 }
 
@@ -155,14 +184,15 @@ int core::setSignals(const start_signal_struct &s)
     if (!(s.duration <= 150 && s.frequency <= 9999 && s.duration > 0 && s.frequency > 0))
         return -2;
 
-    uint16_t a[3] = {s.frequency, s.duration, s.interval};
+    std::lock_guard<std::mutex> lock(modbus_mutex);
 
-    if (mb_cli->WriteHoldingRegisters(a, 41001, 3, 1000) != 3)
-        return -3;
+    // Записываем в локальные регистры
+    usRegHoldingBuf[0] = s.frequency;
+    usRegHoldingBuf[1] = s.duration;
 
     start_signal.frequency = s.frequency;
-    start_signal.interval = s.interval;
     start_signal.duration = s.duration;
+    start_signal.interval = s.interval;
 
     return 0;
 }
@@ -202,66 +232,154 @@ void core::fill_coef()
     coef.coef_u_cat_meas = 25e3 / 1.89;
 }
 
-int core::load_timers_param()
-{
-    uint16_t a[3];
-    uint8_t b;
-
-    if (mb_cli->ReadHoldingRegisters(a, 41001, 3, 1000) != 3)
-        return -1;
-    if (mb_cli->ReadCoils(&b, 1, 1, 1000) != 1)
-        return -1;
-
-    start_signal.IsEnabled = b;
-    start_signal.frequency = a[0];
-    start_signal.duration = a[1];
-    start_signal.interval = a[2];
-
-    return 0;
-}
-
-int core::UpdateValues()
+void core::syncRegistersWithDevice()
 {
     if (conn_status != CONNECTED)
-        return -1;
+        return;
 
-    uint16_t buffer_reg[9];
-    uint8_t buffer_discrete[5];
+    std::lock_guard<std::mutex> lock(modbus_mutex);
 
-    if (mb_cli->ReadInputRegisters(buffer_reg, 31001, 9, 1000) != 9)
-        return -1;
-    if (mb_cli->ReadDiscrete(buffer_discrete, 10001, 5, 1000) != 5)
-        return -1;
-    if (load_timers_param())
-        return -1;
+    // Читаем все регистры с устройства
+    uint16_t device_input[REG_INPUT_NREGS];
+    uint8_t device_discrete[DISCRETE_N];
+    uint16_t device_holding[REG_HOLDING_NREGS];
+    uint8_t device_coils[COILS_N];
 
-    heater_block.IsEnabled = buffer_discrete[0];
-    heater_block.IsReady = buffer_discrete[4];
-    heater_block.control_i = buffer_reg[1];
-    heater_block.measure_i = buffer_reg[5];
-    heater_block.measure_u = buffer_reg[7];
+    // Читаем Input регистры
+    if (mb_cli->ReadInputRegisters(device_input, REG_INPUT_START, REG_INPUT_NREGS, 1000)
+        == REG_INPUT_NREGS) {
+        memcpy(usRegInputBuf, device_input, sizeof(usRegInputBuf));
+    }
 
-    energy_block.IsEnabled = buffer_discrete[1];
-    energy_block.LE_or_HE = buffer_discrete[3];
-    energy_block.control_le = buffer_reg[0];
-    energy_block.control_he = buffer_reg[4];
-    energy_block.measure_le = buffer_reg[6];
-    energy_block.measure_he = buffer_reg[8];
+    // Читаем Discrete
+    if (mb_cli->ReadDiscrete(device_discrete, DISCRETE_START, DISCRETE_N, 1000) == DISCRETE_N) {
+        usDiscreteBuf[0] = 0;
+        for (int i = 0; i < DISCRETE_N; i++) {
+            if (device_discrete[i])
+                usDiscreteBuf[0] |= (1 << i);
+        }
+    }
 
-    cathode_block.IsEnabled = buffer_discrete[2];
-    cathode_block.control_cathode = buffer_reg[3];
-    cathode_block.measure_cathode = buffer_reg[2];
+    // Проверяем и синхронизируем Holding регистры
+    if (mb_cli->ReadHoldingRegisters(device_holding, REG_HOLDING_START, REG_HOLDING_NREGS, 1000)
+        == REG_HOLDING_NREGS) {
+        bool need_update_holding = false;
+        for (int i = 0; i < REG_HOLDING_NREGS; i++) {
+            if (device_holding[i] != usRegHoldingBuf[i]) {
+                need_update_holding = true;
+                break;
+            }
+        }
 
-    return 0;
+        if (need_update_holding) {
+            mb_cli->WriteHoldingRegisters(usRegHoldingBuf,
+                                          REG_HOLDING_START,
+                                          REG_HOLDING_NREGS,
+                                          1000);
+        }
+    }
+
+    // Проверяем и синхронизируем Coils
+    if (mb_cli->ReadCoils(device_coils, COILS_START, COILS_N, 1000) == COILS_N) {
+        uint16_t device_coils_word = 0;
+        for (int i = 0; i < COILS_N; i++) {
+            if (device_coils[i])
+                device_coils_word |= (1 << i);
+        }
+
+        if (device_coils_word != usCoilsBuf[0]) {
+            uint8_t coils_to_write[COILS_N];
+            for (int i = 0; i < COILS_N; i++) {
+                coils_to_write[i] = (usCoilsBuf[0] >> i) & 1;
+            }
+            mb_cli->WriteCoils(coils_to_write, COILS_START, COILS_N, 1000);
+        }
+    }
 }
 
+void core::updateStructuresFromRegisters()
+{
+    std::lock_guard<std::mutex> lock(modbus_mutex);
+
+    // Обновляем структуры из input регистров
+    energy_block.control_le = usRegInputBuf[0];
+    heater_block.control_i = usRegInputBuf[1];
+    cathode_block.measure_cathode = usRegInputBuf[2];
+    cathode_block.control_cathode = usRegInputBuf[3];
+    energy_block.control_he = usRegInputBuf[4];
+    heater_block.measure_i = usRegInputBuf[5];
+    energy_block.measure_le = usRegInputBuf[6];
+    heater_block.measure_u = usRegInputBuf[7];
+    energy_block.measure_he = usRegInputBuf[8];
+
+    // Обновляем из discrete
+    uint16_t discrete = usDiscreteBuf[0];
+    heater_block.IsEnabled = (discrete >> 0) & 1;
+    energy_block.IsEnabled = (discrete >> 1) & 1;
+    cathode_block.IsEnabled = (discrete >> 2) & 1;
+    energy_block.LE_or_HE = (discrete >> 3) & 1;
+    heater_block.IsReady = (discrete >> 4) & 1;
+
+    // Обновляем из holding и coils для start_signal
+    start_signal.frequency = usRegHoldingBuf[0];
+    start_signal.duration = usRegHoldingBuf[1];
+    start_signal.IsEnabled = usCoilsBuf[0] & 1;
+
+    // Обновляем настройки АЦП из holding регистров
+    adc_settings.channel = usRegHoldingBuf[2];
+    adc_settings.n_samples = usRegHoldingBuf[3];
+    // averaging хранится локально, не в регистрах устройства
+}
+void core::initialSyncFromDevice()
+{
+    if (conn_status != CONNECTED)
+        return;
+
+    std::lock_guard<std::mutex> lock(modbus_mutex);
+
+    // Читаем все регистры с устройства
+    uint16_t device_input[REG_INPUT_NREGS];
+    uint8_t device_discrete[DISCRETE_N];
+    uint16_t device_holding[REG_HOLDING_NREGS];
+    uint8_t device_coils[COILS_N];
+
+    // Читаем Input регистры
+    if (mb_cli->ReadInputRegisters(device_input, REG_INPUT_START, REG_INPUT_NREGS, 1000)
+        == REG_INPUT_NREGS) {
+        memcpy(usRegInputBuf, device_input, sizeof(usRegInputBuf));
+    }
+
+    // Читаем Discrete
+    if (mb_cli->ReadDiscrete(device_discrete, DISCRETE_START, DISCRETE_N, 1000) == DISCRETE_N) {
+        usDiscreteBuf[0] = 0;
+        for (int i = 0; i < DISCRETE_N; i++) {
+            if (device_discrete[i])
+                usDiscreteBuf[0] |= (1 << i);
+        }
+    }
+
+    // Читаем Holding регистры (БЕЗ записи обратно на устройство)
+    if (mb_cli->ReadHoldingRegisters(device_holding, REG_HOLDING_START, REG_HOLDING_NREGS, 1000)
+        == REG_HOLDING_NREGS) {
+        memcpy(usRegHoldingBuf, device_holding, sizeof(usRegHoldingBuf));
+    }
+
+    // Читаем Coils (БЕЗ записи обратно на устройство)
+    if (mb_cli->ReadCoils(device_coils, COILS_START, COILS_N, 1000) == COILS_N) {
+        usCoilsBuf[0] = 0;
+        for (int i = 0; i < COILS_N; i++) {
+            if (device_coils[i])
+                usCoilsBuf[0] |= (1 << i);
+        }
+    }
+}
 void core::adcThreadLoop()
 {
-    const int current_n_samples = n_samples;
-    const int current_n_averaging = averaging;
-    std::unique_ptr<PackageBuf> pack = nullptr;
-    List<PackageBuf> *queue = new List<PackageBuf>();
+    const int current_n_samples = adc_settings.n_samples;
+    const int current_n_averaging = adc_settings.averaging;
 
+    std::unique_ptr<Package<uint8_t>> pack = nullptr;
+    List<Package<uint8_t>> *queue = new List<Package<uint8_t>>();
     while (!abortFlag.load()) {
         for (int i = 0; i < current_n_averaging; i++) {
             while (pack == nullptr && !abortFlag.load()) {
@@ -273,10 +391,8 @@ void core::adcThreadLoop()
                 break;
             queue->add(std::move(pack));
         }
-
         if (abortFlag.load())
             break;
-
         if (queue->size() == current_n_averaging) {
             QMetaObject::invokeMethod(
                 this,
@@ -284,21 +400,25 @@ void core::adcThreadLoop()
                     emit adcDataReady(queue, current_n_samples, current_n_averaging);
                 },
                 Qt::QueuedConnection);
-
-            queue = new List<PackageBuf>();
+            queue = new List<Package<uint8_t>>();
         }
     }
-
     delete queue;
-    StopADCBytes();
 }
 
 void core::modbusUpdateLoop()
 {
     while (!abortModbusFlag.load()) {
         if (conn_status == CONNECTED) {
-            UpdateValues();
+            // Синхронизируем регистры с устройством
+            syncRegistersWithDevice();
+            // Обновляем структуры из регистров
+            updateStructuresFromRegisters();
+
+            // Уведомляем UI об обновлении данных
+            QMetaObject::invokeMethod(this, [this]() { emit dataUpdated(); }, Qt::QueuedConnection);
         }
+
         std::this_thread::sleep_for(std::chrono::milliseconds(700));
     }
 }
@@ -307,7 +427,6 @@ void core::startModbusUpdateThread()
 {
     if (modbusThread.joinable())
         return;
-
     abortModbusFlag.store(false);
     modbusThread = std::thread(&core::modbusUpdateLoop, this);
 }
@@ -355,49 +474,14 @@ void core::clearMBbuf()
     mngr->clearMBlst();
 }
 
-int core::StartADCBytes(int channel)
-{
-    if (conn_status != CONNECTED)
-        return -1;
-
-    uint8_t *buf = new uint8_t[3];
-    std::unique_ptr<PackageBuf> pack = std::make_unique<PackageBuf>();
-    pack->size = 3;
-    pack->packageBuf = buf;
-    buf[0] = OP_ADC_START;
-    buf[1] = channel;
-    buf[2] = n_samples;
-    mngr->queueWrite(std::move(pack));
-
-    return 0;
-}
-
-std::unique_ptr<PackageBuf> core::GetADCBytes()
+std::unique_ptr<Package<uint8_t>> core::GetADCBytes()
 {
     if (conn_status != CONNECTED)
         return nullptr;
-
-    std::unique_ptr<PackageBuf> pack = nullptr;
+    std::unique_ptr<Package<uint8_t>> pack = nullptr;
     while (pack == nullptr)
         pack = mngr->getADCpackage();
-
-    if (pack->size != 2 * ADC_FRAME_N * n_samples + 4)
+    if (pack->size != 2 * ADC_FRAME_N * adc_settings.n_samples + 4) // ИСПОЛЬЗУЕМ adc_settings
         return nullptr;
-
     return pack;
-}
-
-int core::StopADCBytes()
-{
-    if (conn_status != CONNECTED)
-        return -1;
-
-    uint8_t *buf = new uint8_t;
-    std::unique_ptr<PackageBuf> pack = std::make_unique<PackageBuf>();
-    pack->size = 1;
-    pack->packageBuf = buf;
-    *buf = OP_ADC_STOP;
-    mngr->queueWrite(std::move(pack));
-
-    return 0;
 }
