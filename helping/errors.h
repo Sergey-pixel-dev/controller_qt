@@ -14,7 +14,9 @@ enum class MeasurementResult {
     NotConnected = -1,
     SignalNotSet = -2,
     AlreadyRunning = -3,
-    StartError = -4
+    StartError = -4,
+    Timeout = -5
+
 };
 
 enum class SignalResult { Success = 0, NotConnected = -1, InvalidParameters = -2, SendError = -3 };

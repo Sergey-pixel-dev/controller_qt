@@ -21,7 +21,7 @@
 #define COILS_START 00001
 #define DISCRETE_START 10001
 #define COILS_N 2
-#define DISCRETE_N 5
+#define DISCRETE_N 6
 #define REG_INPUT_NREGS 9
 #define REG_HOLDING_NREGS 4
 
@@ -95,6 +95,8 @@ struct adc_settings_struct
     int n_samples; // количество отсчётов
     int averaging; // усреднение
     int channel;   // текущий канал
+    bool enabled;  // команда вкл/выкл АЦП (usCoils бит 1)
+    bool running;  // состояние АЦП на устройстве (usDiscrete бит 5)
 };
 class core : public QObject
 {
@@ -119,6 +121,7 @@ private:
     std::atomic<bool> abortFlag{false};
     std::atomic<bool> abortModbusFlag{false};
     std::atomic<bool> stateADC{false};
+    std::atomic<bool> urgent_sync_flag{false};
 
     void adcThreadLoop();
     void modbusUpdateLoop();
@@ -128,7 +131,7 @@ private:
     // Синхронизация MODBUS регистров
     void syncRegistersWithDevice();
     void updateStructuresFromRegisters();
-    void initialSyncFromDevice(); // Для первого подключения
+    void initialSyncFromDevice(); // Для первого
 
 public:
     explicit core(QObject *parent = nullptr);
@@ -150,7 +153,7 @@ public:
 
     // Методы управления АЦП
     int startADC(int channel);
-    void stopADC();
+    int stopADC();
     bool isADCRunning() const;
 
     // Методы управления сигналами
@@ -171,6 +174,9 @@ public:
     void clearADCbuf();
     void clearMBbuf();
     std::unique_ptr<Package<uint8_t>> GetADCBytes();
+
+    int succes_count;
+    int error_count;
 
 signals:
     void adcDataReady(List<Package<uint8_t>> *queue, int samples, int averaging);

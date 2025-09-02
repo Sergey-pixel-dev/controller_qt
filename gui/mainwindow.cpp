@@ -108,14 +108,24 @@ void MainWindow::on_button_connect_clicked()
         ConnectResult result = static_cast<ConnectResult>(appCore->connectDevice(port));
 
         switch (result) {
-        case ConnectResult::Success:
+        case ConnectResult::Success: {
             ui->button_connect->setText("Отключить");
             ui->pushButton->setEnabled(true);
             ui->pushButton_2->setEnabled(true);
             ui->checkBox->setEnabled(true);
             ui->label_4->setText("Соединение установлено");
+            //Signals values
+            {
+                QSignalBlocker blocker(ui->checkBox);
+                start_signal_struct signal = appCore->getSignals();
+                ui->spinBox->setValue(signal.frequency);
+                ui->doubleSpinBox_27->setValue(signal.duration / 10.0);
+                ui->spinBox_2->setValue(signal.interval);
+                ui->checkBox->setCheckState(signal.IsEnabled ? Qt::Checked : Qt::Unchecked);
+                ui->checkBox->setText(signal.IsEnabled ? "ВКЛ" : "ВЫКЛ");
+            }
             break;
-
+        }
         case ConnectResult::AlreadyConnected:
             showErrMsgBox("Предупреждение", "Устройство уже подключено");
             break;
@@ -155,7 +165,11 @@ void MainWindow::on_pushButton_2_clicked()
             appCore->startADC(ui->comboBox_2->currentIndex() + 1));
         handleMeasurementResult(result);
     } else {
-        appCore->stopADC();
+        int stopResult = appCore->stopADC();
+        if (stopResult == -5) {
+            showErrMsgBox("Предупреждение",
+                          "Таймаут остановки АЦП - устройство не подтвердило выключение");
+        }
         setMeasurementStoppedState();
     }
 }
@@ -164,25 +178,29 @@ void MainWindow::on_checkBox_checkStateChanged(const Qt::CheckState &arg1)
 {
     if (arg1 == Qt::Checked) {
         SignalResult result = static_cast<SignalResult>(appCore->startSignals());
-
         switch (result) {
         case SignalResult::Success:
             ui->checkBox->setText("ВКЛ");
             break;
-
         case SignalResult::InvalidParameters:
             showErrMsgBox("Ошибка", "Неверные параметры - включить невозможно!");
             ui->checkBox->setCheckState(Qt::Unchecked);
             break;
-
+        case SignalResult::NotConnected:
+            showErrMsgBox("Ошибка", "Устройство не подключено");
+            ui->checkBox->setCheckState(Qt::Unchecked);
+            break;
         default:
-            //showErrMsgBox("Ошибка", "Не удалось запустить сигналы");
+            showErrMsgBox("Ошибка", "Не удалось запустить сигналы");
             ui->checkBox->setCheckState(Qt::Unchecked);
             break;
         }
     } else {
+        SignalResult result = static_cast<SignalResult>(appCore->stopSignals());
+        if (result != SignalResult::Success) {
+            showErrMsgBox("Ошибка", "Не удалось остановить сигналы");
+        }
         ui->checkBox->setText("ВЫКЛ");
-        appCore->stopSignals();
     }
 }
 
@@ -194,7 +212,6 @@ void MainWindow::on_pushButton_clicked()
                                (uint16_t) ui->spinBox_2->value()};
 
     SignalResult result = static_cast<SignalResult>(appCore->setSignals(signal));
-
     switch (result) {
     case SignalResult::Success:
         // Всё хорошо
@@ -202,11 +219,11 @@ void MainWindow::on_pushButton_clicked()
     case SignalResult::InvalidParameters:
         showErrMsgBox("Ошибка", "Неправильные параметры сигналов");
         break;
-    case SignalResult::SendError:
-        showErrMsgBox("Ошибка", "Данные не отправились");
-        break;
     case SignalResult::NotConnected:
         showErrMsgBox("Ошибка", "Устройство не подключено");
+        break;
+    default:
+        showErrMsgBox("Ошибка", "Не удалось установить параметры сигналов");
         break;
     }
 }
@@ -234,8 +251,16 @@ void MainWindow::on_pushButton_6_clicked()
 
     // Перезапуск измерения если оно активно
     if (appCore->isADCRunning()) {
-        appCore->stopADC();
-        appCore->startADC(ui->comboBox_2->currentIndex() + 1);
+        int stopResult = appCore->stopADC();
+        if (stopResult == -5) {
+            showErrMsgBox("Предупреждение", "Таймаут остановки АЦП при перезапуске");
+        }
+
+        MeasurementResult startResult = static_cast<MeasurementResult>(
+            appCore->startADC(ui->comboBox_2->currentIndex() + 1));
+        if (startResult != MeasurementResult::Success) {
+            handleMeasurementResult(startResult);
+        }
     }
 
     // Обновление графика
@@ -273,12 +298,20 @@ void MainWindow::on_comboBox_4_currentIndexChanged(int index)
 {
     bool wasRunning = appCore->isADCRunning();
     if (wasRunning) {
-        appCore->stopADC();
+        int stopResult = appCore->stopADC();
+        if (stopResult == -5) {
+            showErrMsgBox("Предупреждение", "Таймаут остановки АЦП при изменении усреднения");
+        }
     }
 
-    appCore->adc_settings.averaging = pow(4, index); // ИСПОЛЬЗУЕМ СТРУКТУРУ
+    appCore->adc_settings.averaging = pow(4, index);
+
     if (wasRunning) {
-        appCore->startADC(ui->comboBox_2->currentIndex() + 1);
+        MeasurementResult startResult = static_cast<MeasurementResult>(
+            appCore->startADC(ui->comboBox_2->currentIndex() + 1));
+        if (startResult != MeasurementResult::Success) {
+            handleMeasurementResult(startResult);
+        }
     }
 }
 
@@ -286,29 +319,37 @@ void MainWindow::on_comboBox_6_currentIndexChanged(int index)
 {
     bool wasRunning = appCore->isADCRunning();
     if (wasRunning) {
-        appCore->stopADC();
+        int stopResult = appCore->stopADC();
+        if (stopResult == -5) {
+            showErrMsgBox("Предупреждение", "Таймаут остановки АЦП при изменении времени измерения");
+        }
     }
 
     switch (index) {
     case 0:
-        appCore->adc_settings.n_samples = 8; // ИСПОЛЬЗУЕМ СТРУКТУРУ
+        appCore->adc_settings.n_samples = 8;
         my_chart->axisX->setRange(0, 3);
         break;
     case 1:
-        appCore->adc_settings.n_samples = 16; // ИСПОЛЬЗУЕМ СТРУКТУРУ
+        appCore->adc_settings.n_samples = 16;
         my_chart->axisX->setRange(0, 6);
         break;
     case 2:
     default:
-        appCore->adc_settings.n_samples = 24; // ИСПОЛЬЗУЕМ СТРУКТУРУ
+        appCore->adc_settings.n_samples = 24;
         my_chart->axisX->setRange(0, 9);
         break;
     }
 
     if (wasRunning) {
-        appCore->startADC(ui->comboBox_2->currentIndex() + 1);
+        MeasurementResult startResult = static_cast<MeasurementResult>(
+            appCore->startADC(ui->comboBox_2->currentIndex() + 1));
+        if (startResult != MeasurementResult::Success) {
+            handleMeasurementResult(startResult);
+        }
     }
 }
+
 void MainWindow::on_comboBox_7_currentIndexChanged(int index)
 {
     switch (index) {
@@ -418,6 +459,9 @@ void MainWindow::handleMeasurementResult(MeasurementResult result)
     case MeasurementResult::StartError:
         showErrMsgBox("Ошибка", "Ошибка запуска измерения");
         break;
+    case MeasurementResult::Timeout: // УНИВЕРСАЛЬНЫЙ таймаут
+        showErrMsgBox("Ошибка", "Таймаут запуска АЦП - устройство не подтвердило включение");
+        break;
     }
 }
 
@@ -426,8 +470,8 @@ void MainWindow::setMeasurementStartedState()
     ui->pushButton_2->setText("СТОП");
     ui->label_47->setText("Оцифровка запущена");
     ui->comboBox_2->setEnabled(false);
-    ui->section->toggle(false);
-    ui->section->SetDisable(true);
+    //ui->section->toggle(false);
+    //ui->section->SetDisable(true);
     ui->checkBox->setDisabled(true);
 }
 
@@ -491,16 +535,9 @@ void MainWindow::updateScreenValues()
     ui->doubleSpinBox_7->setValue(appCore->cathode_block.impulse_i / 1000.0);
     ui->doubleSpinBox_6->setValue(appCore->cathode_block.impulse_u / 1000.0);
 
-    //Signals values
-    {
-        QSignalBlocker blocker(ui->checkBox);
-        start_signal_struct signal = appCore->getSignals();
-        ui->spinBox->setValue(signal.frequency);
-        ui->doubleSpinBox_27->setValue(signal.duration / 10.0);
-        ui->spinBox_2->setValue(signal.interval);
-        ui->checkBox->setCheckState(signal.IsEnabled ? Qt::Checked : Qt::Unchecked);
-        ui->checkBox->setText(signal.IsEnabled ? "ВКЛ" : "ВЫКЛ");
-    }
+    //Error and succes statistics
+    ui->label_49->setText(QString(QString::number(appCore->succes_count)));
+    ui->label_52->setText(QString(QString::number(appCore->error_count)));
 }
 
 void MainWindow::updateChart(const QVector<QPointF> &points)

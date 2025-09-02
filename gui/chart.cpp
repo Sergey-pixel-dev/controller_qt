@@ -13,7 +13,7 @@ Chart::Chart(QSlider *sl)
     axisX->setTitleText("Время, мкс");
 
     axisY = new QValueAxis();
-    axisY->setRange(0, 3350);
+    axisY->setRange(100, 2500);
     axisY->setLabelFormat("%d");
     axisY->setTickCount(10);
     axisY->setTitleText("Напряжение, мВ");
