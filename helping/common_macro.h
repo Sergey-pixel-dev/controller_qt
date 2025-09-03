@@ -7,9 +7,5 @@
 #define STM32_TIM_FREQ 72 //частота таймера
 #define STM32_TIM_N 1     //на сколько отсчетов таймера будет сделан новый замер
 
-//команды
-#define OP_MODBUS 0x10    //slave-id
-#define OP_ADC_START 0x01 //оцифровка
-#define OP_AVERAGE 0x02   //среднее
-#define OP_ADC_STOP 0x03
+#define GRID_DIVISIONS 6
 #endif // COMMON_MACRO_H

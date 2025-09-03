@@ -39,7 +39,6 @@ private slots:
     void on_pushButton_clicked();   // Установить сигналы
     void on_pushButton_2_clicked(); // Старт/стоп оцифровки
     void on_pushButton_3_clicked(); // Обновить порты
-    void on_pushButton_6_clicked(); // Очистить данные
     void on_checkBox_checkStateChanged(const Qt::CheckState &arg1);
     void on_tabWidget_currentChanged(int index);
 
@@ -48,7 +47,6 @@ private slots:
     void on_comboBox_2_currentIndexChanged(int index); // Канал измерения
     void on_comboBox_3_currentIndexChanged(int index); // Серийный порт
     void on_comboBox_4_currentIndexChanged(int index); // Усреднение
-    void on_comboBox_6_currentIndexChanged(int index); // Время измерения
     void on_comboBox_7_currentIndexChanged(int index); // Фильтр
 
     // Элементы управления позицией импульса
@@ -59,6 +57,14 @@ private slots:
     // Асинхронные обновления
     void updateChart(const QVector<QPointF> &points);
     void onDataProcessed(List<PackageBuf> *queue, int samples, int averaging);
+
+    // Масштабы и сдвиги
+    void on_doubleSpinBox_13_valueChanged(double arg1);
+    void on_doubleSpinBox_14_valueChanged(double arg1);
+
+    void on_doubleSpinBox_12_valueChanged(double arg1);
+
+    void on_doubleSpinBox_8_valueChanged(double arg1);
 
 private:
     void setupUI();

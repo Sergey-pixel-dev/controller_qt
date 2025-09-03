@@ -44,6 +44,9 @@ public:
     QVector<uint32_t> origin_time;
     QVector<uint32_t> origin_data;
 
+    int32_t voltageShift = 0;
+    int32_t timeShift = 0;
+
 private:
     List<Package<uint8_t>> *queue_data;
 

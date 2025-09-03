@@ -13,7 +13,6 @@ core::core(QObject *parent)
     current_model = DM25_400;
 
     // Инициализация настроек АЦП
-    adc_settings.n_samples = ADC_SAMPLES;
     adc_settings.averaging = 1;
     adc_settings.channel = 1;
 
@@ -110,14 +109,15 @@ int core::startADC(int channel)
 
     // Устанавливаем регистры для АЦП и обновляем структуру
     {
-        std::lock_guard<std::mutex> lock(modbus_mutex);
-        usRegHoldingBuf[2] = channel;                // канал АЦП
-        usRegHoldingBuf[3] = adc_settings.n_samples; // количество отсчетов
-        usCoilsBuf[0] |= (1 << 1);                   // ВКЛ АЦП (бит 1)
+        std::lock_guard<std::mutex> lock_adc(mtxADCsettings);
+        std::lock_guard<std::mutex> lock_modbus(modbus_mutex);
 
-        // Обновляем структуру
+        usRegHoldingBuf[2] = channel;
+        usRegHoldingBuf[3] = adc_settings.n_samples;
+        usCoilsBuf[0] |= (1 << 1);
+
         adc_settings.channel = channel;
-        adc_settings.enabled = true; // Команда включения отправлена
+        adc_settings.enabled = true;
     }
 
     // Сигнализируем о срочной синхронизации
@@ -470,29 +470,29 @@ void core::initialSyncFromDevice()
 }
 void core::adcThreadLoop()
 {
-    const int current_n_samples = adc_settings.n_samples;
-    const int current_n_averaging = adc_settings.averaging;
 
     std::unique_ptr<Package<uint8_t>> pack = nullptr;
     List<Package<uint8_t>> *queue = new List<Package<uint8_t>>();
     while (!abortFlag.load()) {
-        for (int i = 0; i < current_n_averaging; i++) {
-            while (pack == nullptr && !abortFlag.load()) {
-                pack = GetADCBytes();
-                if (abortFlag.load())
-                    break;
-            }
-            if (abortFlag.load())
-                break;
-            queue->add(std::move(pack));
+        int current_averaging;
+        int current_n_samples;
+        {
+            std::lock_guard<std::mutex> lock(mtxADCsettings);
+            current_averaging = adc_settings.averaging;
+            current_n_samples = adc_settings.n_samples;
+        }
+        for (int i = 0; i < current_averaging; i++) {
+            pack = GetADCBytes();
+            if (pack)
+                queue->add(std::move(pack));
         }
         if (abortFlag.load())
             break;
-        if (queue->size() == current_n_averaging) {
+        if (queue->size() >= current_averaging) {
             QMetaObject::invokeMethod(
                 this,
-                [this, queue, current_n_samples, current_n_averaging]() {
-                    emit adcDataReady(queue, current_n_samples, current_n_averaging);
+                [this, queue, current_n_samples, current_averaging]() {
+                    emit adcDataReady(queue, current_n_samples, current_averaging);
                 },
                 Qt::QueuedConnection);
             queue = new List<Package<uint8_t>>();
@@ -596,10 +596,15 @@ std::unique_ptr<Package<uint8_t>> core::GetADCBytes()
     if (conn_status != CONNECTED)
         return nullptr;
     std::unique_ptr<Package<uint8_t>> pack = nullptr;
-        pack = mngr->getADCpackage();
-        if (!pack)
-            return nullptr;
-        if (pack->size != 2 * ADC_FRAME_N * adc_settings.n_samples + 4) // ИСПОЛЬЗУЕМ adc_settings
-            return nullptr;
-        return pack;
+    pack = mngr->getADCpackage();
+    if (!pack)
+        return nullptr;
+    int current_n_samples;
+    {
+        std::lock_guard<std::mutex> lock(mtxADCsettings);
+        current_n_samples = adc_settings.n_samples;
+    }
+    if (pack->size != 2 * ADC_FRAME_N * current_n_samples + 4)
+        return nullptr;
+    return pack;
 }

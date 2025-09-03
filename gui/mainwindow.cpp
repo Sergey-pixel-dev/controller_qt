@@ -23,6 +23,9 @@ MainWindow::MainWindow(QWidget *parent)
     // Инициализация
     appCore->fill_std_values();
     signalProcessor->ClearData();
+
+    on_doubleSpinBox_14_valueChanged(0.100);
+    on_doubleSpinBox_13_valueChanged(0.100);
 }
 
 MainWindow::~MainWindow()
@@ -52,11 +55,6 @@ void MainWindow::setupUI()
     ui->comboBox_2->addItem(QString("Импульс I К."));
     ui->comboBox_2->addItem(QString("Импульс U К."));
 
-    ui->comboBox_6->addItem(QString("3 мкс."));
-    ui->comboBox_6->addItem(QString("6 мкс."));
-    ui->comboBox_6->addItem(QString("9 мкс."));
-    ui->comboBox_6->setCurrentIndex(2);
-
     ui->comboBox_4->addItem(QString("x1"));
     ui->comboBox_4->addItem(QString("x4"));
     ui->comboBox_4->addItem(QString("x16"));
@@ -70,6 +68,8 @@ void MainWindow::setupUI()
     // Настройка графика
     ui->chartView->setRubberBand(QChartView::RectangleRubberBand);
     ui->chartView->setChart(my_chart->GetChart());
+    my_chart->setTimeScale(0.500);
+    my_chart->setVoltageScale(0.200);
 
     // Начальное состояние
     ui->spinBox_2->setEnabled(false);
@@ -239,34 +239,6 @@ void MainWindow::on_pushButton_3_clicked()
     }
 }
 
-void MainWindow::on_pushButton_6_clicked()
-{
-    // Сброс значений импульсов
-    appCore->energy_block.impulse = 0;
-    appCore->cathode_block.impulse_i = 0;
-    appCore->cathode_block.impulse_u = 0;
-
-    // Очистка данных в процессоре
-    signalProcessor->ClearData();
-
-    // Перезапуск измерения если оно активно
-    if (appCore->isADCRunning()) {
-        int stopResult = appCore->stopADC();
-        if (stopResult == -5) {
-            showErrMsgBox("Предупреждение", "Таймаут остановки АЦП при перезапуске");
-        }
-
-        MeasurementResult startResult = static_cast<MeasurementResult>(
-            appCore->startADC(ui->comboBox_2->currentIndex() + 1));
-        if (startResult != MeasurementResult::Success) {
-            handleMeasurementResult(startResult);
-        }
-    }
-
-    // Обновление графика
-    updateChart(signalProcessor->GetPoints());
-}
-
 void MainWindow::on_comboBox_activated(int index)
 {
     switch (index) {
@@ -296,57 +268,9 @@ void MainWindow::on_comboBox_3_currentIndexChanged(int index)
 
 void MainWindow::on_comboBox_4_currentIndexChanged(int index)
 {
-    bool wasRunning = appCore->isADCRunning();
-    if (wasRunning) {
-        int stopResult = appCore->stopADC();
-        if (stopResult == -5) {
-            showErrMsgBox("Предупреждение", "Таймаут остановки АЦП при изменении усреднения");
-        }
-    }
-
-    appCore->adc_settings.averaging = pow(4, index);
-
-    if (wasRunning) {
-        MeasurementResult startResult = static_cast<MeasurementResult>(
-            appCore->startADC(ui->comboBox_2->currentIndex() + 1));
-        if (startResult != MeasurementResult::Success) {
-            handleMeasurementResult(startResult);
-        }
-    }
-}
-
-void MainWindow::on_comboBox_6_currentIndexChanged(int index)
-{
-    bool wasRunning = appCore->isADCRunning();
-    if (wasRunning) {
-        int stopResult = appCore->stopADC();
-        if (stopResult == -5) {
-            showErrMsgBox("Предупреждение", "Таймаут остановки АЦП при изменении времени измерения");
-        }
-    }
-
-    switch (index) {
-    case 0:
-        appCore->adc_settings.n_samples = 8;
-        my_chart->axisX->setRange(0, 3);
-        break;
-    case 1:
-        appCore->adc_settings.n_samples = 16;
-        my_chart->axisX->setRange(0, 6);
-        break;
-    case 2:
-    default:
-        appCore->adc_settings.n_samples = 24;
-        my_chart->axisX->setRange(0, 9);
-        break;
-    }
-
-    if (wasRunning) {
-        MeasurementResult startResult = static_cast<MeasurementResult>(
-            appCore->startADC(ui->comboBox_2->currentIndex() + 1));
-        if (startResult != MeasurementResult::Success) {
-            handleMeasurementResult(startResult);
-        }
+    {
+        std::lock_guard<std::mutex> lock(appCore->mtxADCsettings);
+        appCore->adc_settings.averaging = pow(4, index);
     }
 }
 
@@ -672,5 +596,34 @@ void MainWindow::updateChannelLabels(int channelIndex)
         ui->label_15->setText("Импульс");
         ui->label_18->setText("Импульс I");
         break;
+    }
+}
+
+void MainWindow::on_doubleSpinBox_13_valueChanged(double arg1)
+{
+    my_chart->setVoltageScale(arg1);
+}
+
+void MainWindow::on_doubleSpinBox_14_valueChanged(double arg1)
+{
+    {
+        std::lock_guard<std::mutex> lock1(appCore->mtxADCsettings);
+        std::lock_guard<std::mutex> lock2(appCore->modbus_mutex);
+
+        appCore->adc_settings.n_samples = GRID_DIVISIONS * arg1 * 3 + 3;
+        appCore->usRegHoldingBuf[3] = appCore->adc_settings.n_samples;
+    }
+    my_chart->setTimeScale(arg1);
+}
+void MainWindow::on_doubleSpinBox_12_valueChanged(double arg1)
+{
+    signalProcessor->voltageShift = arg1 * 1000;
+}
+
+void MainWindow::on_doubleSpinBox_8_valueChanged(double arg1)
+{
+    {
+        std::lock_guard<std::mutex> lock2(appCore->modbus_mutex);
+        appCore->usRegHoldingBuf[4] = -arg1 * 100;
     }
 }

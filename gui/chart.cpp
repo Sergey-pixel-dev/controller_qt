@@ -4,19 +4,12 @@ Chart::Chart(QSlider *sl)
 {
     chart = new QChart();
     chart->legend()->hide();
-    chart->setTitle("Сигнал");
 
     axisX = new QValueAxis();
-    axisX->setRange(0, 9);
     axisX->setLabelFormat("%.3f");
-    axisX->setTickCount(20);
-    axisX->setTitleText("Время, мкс");
 
     axisY = new QValueAxis();
-    axisY->setRange(100, 2500);
     axisY->setLabelFormat("%d");
-    axisY->setTickCount(10);
-    axisY->setTitleText("Напряжение, мВ");
 
     chart->addAxis(axisX, Qt::AlignBottom);
     chart->addAxis(axisY, Qt::AlignLeft);
@@ -81,4 +74,20 @@ void Chart::DrawAverage(const QPointF &average_point)
 QChart *Chart::GetChart()
 {
     return this->chart;
+}
+
+void Chart::setTimeScale(double usPerDiv)
+{
+    timePerDiv = usPerDiv;
+    double totalTime = timePerDiv * gridDivisions;
+    axisX->setRange(0, totalTime);
+    axisX->setTickCount(gridDivisions + 1);
+}
+
+void Chart::setVoltageScale(double vPerDiv)
+{
+    voltagePerDiv = vPerDiv;
+    double totalRange = voltagePerDiv * gridDivisions;
+    axisY->setRange(0, totalRange * 1000);
+    axisY->setTickCount(gridDivisions + 1);
 }

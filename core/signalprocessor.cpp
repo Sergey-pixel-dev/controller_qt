@@ -29,7 +29,7 @@ QVector<QPointF> SignalProcessor::GetPoints()
     if (MovAvrFil_par.IsActive)
         MovingAverageFilter();
     for (int i = 0; i < data.size(); i++) {
-        points[i] = QPointF(time[i] / 1000.0, data[i]);
+        points[i] = QPointF(time[i] / 1000.0 + timeShift, (int32_t) data[i] + voltageShift);
     }
     return points;
 }

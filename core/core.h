@@ -23,7 +23,7 @@
 #define COILS_N 2
 #define DISCRETE_N 6
 #define REG_INPUT_NREGS 9
-#define REG_HOLDING_NREGS 4
+#define REG_HOLDING_NREGS 5
 
 enum CONN_STATUS_ENUM {
     DISCONNECTED,
@@ -107,13 +107,6 @@ private:
     Manager *mngr;
     ModbusClient *mb_cli;
 
-    // MODBUS регистры
-    uint16_t usRegInputBuf[REG_INPUT_NREGS];     // index 0-8: входы IN0-IN8
-    uint16_t usRegHoldingBuf[REG_HOLDING_NREGS]; // 0-HZ, 1-длительность, 2-channel АЦП, 3-n_samples
-    uint16_t usCoilsBuf[1];                      // bit 0-ВКЛ ИМПУЛЬС, bit 1-ВКЛ АЦП
-    uint16_t usDiscreteBuf[1];                   // bits 0-4: НАКАЛ,У.Э.,-25кВ,HE,LE
-
-    std::mutex modbus_mutex; // Для синхронизации доступа к регистрам
 
     // Потоки управления
     std::thread adcThread;
@@ -177,6 +170,14 @@ public:
 
     int succes_count;
     int error_count;
+    std::mutex mtxADCsettings;
+    std::mutex modbus_mutex; // Для синхронизации доступа к регистрам
+
+    // MODBUS регистры
+    uint16_t usRegInputBuf[REG_INPUT_NREGS];     // index 0-8: входы IN0-IN8
+    uint16_t usRegHoldingBuf[REG_HOLDING_NREGS]; // 0-HZ, 1-длительность, 2-channel АЦП, 3-n_samples
+    uint16_t usCoilsBuf[1];                      // bit 0-ВКЛ ИМПУЛЬС, bit 1-ВКЛ АЦП
+    uint16_t usDiscreteBuf[1];                   // bits 0-4: НАКАЛ,У.Э.,-25кВ,HE,LE
 
 signals:
     void adcDataReady(List<Package<uint8_t>> *queue, int samples, int averaging);
