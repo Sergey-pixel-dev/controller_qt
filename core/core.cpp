@@ -1,28 +1,24 @@
 #include "core.h"
-#include <QObject>
 #include "../helping/common_macro.h"
-#include <cstring>
-
 core::core(QObject *parent)
     : QObject(parent)
 {
     mngr = new Manager();
     mb_cli = new ModbusClient();
     mb_cli->mngr = mngr;
+
     conn_status = DISCONNECTED;
     current_model = DM25_400;
-
-    // Инициализация настроек АЦП
-    adc_settings.averaging = 1;
-    adc_settings.channel = 1;
 
     // Инициализация MODBUS регистров
     memset(usRegInputBuf, 0, sizeof(usRegInputBuf));
     memset(usRegHoldingBuf, 0, sizeof(usRegHoldingBuf));
     memset(usCoilsBuf, 0, sizeof(usCoilsBuf));
     memset(usDiscreteBuf, 0, sizeof(usDiscreteBuf));
+
     succes_count = 0;
     error_count = 0;
+
     fill_std_values();
     fill_coef();
 }
@@ -31,10 +27,12 @@ core::~core()
 {
     abortFlag = true;
     abortModbusFlag = true;
+
     if (adcThread.joinable())
         adcThread.join();
     if (modbusThread.joinable())
         modbusThread.join();
+
     delete mngr;
     delete mb_cli;
 }
@@ -43,6 +41,7 @@ int core::connectDevice(const QString &port, int baudRate)
 {
     if (conn_status == CONNECTED)
         return -1;
+
     if (open(port.toUtf8().constData(),
              baudRate,
              SERIAL_PARITY_NONE,
@@ -51,7 +50,6 @@ int core::connectDevice(const QString &port, int baudRate)
         == 1) {
         if (startManager() == 0) {
             initialSyncFromDevice();
-            updateStructuresFromRegisters();
             startModbusUpdateThread();
             return 0;
         } else {
@@ -66,23 +64,6 @@ void core::disconnectDevice()
 {
     if (stateADC.load()) {
         stopADC();
-
-        // Ждем пока устройство действительно выключит АЦП
-        bool device_adc_stopped = false;
-        int attempts = 0;
-        const int max_attempts = 10;
-
-        while (!device_adc_stopped && attempts < max_attempts && conn_status == CONNECTED) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(200));
-
-            uint8_t device_coils[COILS_N];
-            if (mb_cli->ReadCoils(device_coils, COILS_START, COILS_N, 1000) == COILS_N) {
-                if ((device_coils[1] & 1) == 0) {
-                    device_adc_stopped = true;
-                }
-            }
-            attempts++;
-        }
     }
 
     stopModbusUpdateThread();
@@ -100,56 +81,47 @@ int core::startADC(int channel)
 {
     if (!isConnected())
         return -1;
-    if (!start_signal.IsEnabled)
+    if (!(usCoilsBuf[0] & 1)) // Проверяем бит 0 - сигнал СТАРТ
         return -2;
     if (stateADC.load())
         return -3;
 
     clearADCbuf();
 
-    // Устанавливаем регистры для АЦП и обновляем структуру
     {
-        std::lock_guard<std::mutex> lock_adc(mtxADCsettings);
-        std::lock_guard<std::mutex> lock_modbus(modbus_mutex);
-
+        std::lock_guard<std::mutex> lock(modbus_mutex);
         usRegHoldingBuf[2] = channel;
-        usRegHoldingBuf[3] = adc_settings.n_samples;
-        usCoilsBuf[0] |= (1 << 1);
-
-        adc_settings.channel = channel;
-        adc_settings.enabled = true;
+        usCoilsBuf[0] |= (1 << 1); // Включаем АЦП
     }
 
     // Сигнализируем о срочной синхронизации
     urgent_sync_flag.store(true);
 
-    // Ждем пока устройство подтвердит запуск АЦП (бит 5 в usDiscrete)
+    // Ждем пока устройство подтвердит запуск АЦП
     auto start_time = std::chrono::steady_clock::now();
     bool adc_started = false;
 
     while (!adc_started && conn_status == CONNECTED) {
         auto elapsed = std::chrono::steady_clock::now() - start_time;
         if (std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() > 1000) {
-            return -5; // Таймаут запуска АЦП
+            return -5;
         }
-        // Проверяем локальный usDiscrete (обновляется ModbusLoop потоком)
+
         {
             std::lock_guard<std::mutex> lock(modbus_mutex);
-            if (usDiscreteBuf[0] & 0x20) { // Проверяем 4-й бит (АЦП включен)
+            if (usDiscreteBuf[0] & 0x20) { // Проверяем бит 5 (АЦП включен)
                 adc_started = true;
-                adc_settings.running = true; // Обновляем состояние в структуре
             }
         }
 
         if (!adc_started) {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            // Каждые 50мс сигнализируем о необходимости синхронизации
             urgent_sync_flag.store(true);
         }
     }
 
     if (!adc_started) {
-        return -5; // Не удалось запустить
+        return -5;
     }
 
     abortFlag.store(false);
@@ -161,60 +133,45 @@ int core::startADC(int channel)
 int core::stopADC()
 {
     if (!stateADC.load())
-        return 0; // Уже остановлен
+        return 0;
 
-    // Выключаем АЦП в регистрах и обновляем структуру
     {
         std::lock_guard<std::mutex> lock(modbus_mutex);
-        usCoilsBuf[0] &= ~(1 << 1);   // ВЫКЛ АЦП (бит 1)
-        adc_settings.enabled = false; // Команда выключения отправлена
+        usCoilsBuf[0] &= ~(1 << 1); // ВЫКЛ АЦП (бит 1)
     }
 
-    // Сигнализируем о срочной синхронизации
     urgent_sync_flag.store(true);
 
-    // Ждем пока устройство подтвердит остановку АЦП (бит 4 в usDiscrete)
+    // Ждем пока устройство подтвердит остановку АЦП
     auto start_time = std::chrono::steady_clock::now();
     bool adc_stopped = false;
 
     while (!adc_stopped && conn_status == CONNECTED) {
         auto elapsed = std::chrono::steady_clock::now() - start_time;
         if (std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() > 1000) {
-            // Таймаут - но все равно останавливаем поток
             break;
         }
-
-        // Проверяем локальный usDiscrete (обновляется ModbusLoop потоком)
         {
             std::lock_guard<std::mutex> lock(modbus_mutex);
-            if ((usDiscreteBuf[0] & 0x20) == 0) { // Проверяем что 4-й бит сброшен (АЦП выключен)
+            if ((usDiscreteBuf[0] & 0x20) == 0) { // Проверяем что бит 5 сброшен
                 adc_stopped = true;
-                adc_settings.running = false; // Обновляем состояние в структуре
             }
         }
 
         if (!adc_stopped) {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            // Каждые 50мс сигнализируем о необходимости синхронизации
             urgent_sync_flag.store(true);
         }
     }
 
-    // Останавливаем поток независимо от результата проверки устройства
+    // Останавливаем поток
     abortFlag.store(true);
     if (adcThread.joinable()) {
         adcThread.join();
     }
+
     stateADC.store(false);
-
-    // Обновляем состояние в структуре при принудительной остановке
-    if (!adc_stopped) {
-        std::lock_guard<std::mutex> lock(modbus_mutex);
-        adc_settings.running = false;
-    }
-
-    // Возвращаем результат
-    return adc_stopped ? 0 : -5; // 0 = успех, -5 = таймаут остановки
+    return adc_stopped ? 0 : -5;
 }
 
 bool core::isADCRunning() const
@@ -226,18 +183,16 @@ int core::startSignals()
 {
     if (conn_status != CONNECTED)
         return -1;
-    if (!(start_signal.duration <= 150 && start_signal.frequency <= 9999
-          && start_signal.duration > 0 && start_signal.frequency > 0)) {
+
+    // Проверяем параметры из регистров
+    if (!(usRegHoldingBuf[1] <= 1500 && usRegHoldingBuf[0] <= 9999 && usRegHoldingBuf[1] > 0
+          && usRegHoldingBuf[0] > 0)) {
         return -2;
     }
 
     std::lock_guard<std::mutex> lock(modbus_mutex);
-
-    // Устанавливаем бит 0 (ВКЛ ИМПУЛЬС)
-    usCoilsBuf[0] |= 1;
-    start_signal.IsEnabled = true;
+    usCoilsBuf[0] |= 1; // Устанавливаем бит 0 (ВКЛ ИМПУЛЬС)
     urgent_sync_flag.store(true);
-
     return 0;
 }
 
@@ -247,51 +202,51 @@ int core::stopSignals()
         return -1;
 
     std::lock_guard<std::mutex> lock(modbus_mutex);
-
-    // Сбрасываем бит 0 (ВЫКЛ ИМПУЛЬС)
-    usCoilsBuf[0] &= ~1;
-    start_signal.IsEnabled = false;
+    usCoilsBuf[0] &= ~1; // Сбрасываем бит 0 (ВЫКЛ ИМПУЛЬС)
     urgent_sync_flag.store(true);
-
     return 0;
 }
 
-int core::setSignals(const start_signal_struct &s)
+int core::setSignals(uint16_t frequency, uint16_t duration, uint16_t interval)
 {
     if (conn_status != CONNECTED)
         return -1;
-
-    if (!(s.duration <= 150 && s.frequency <= 9999 && s.duration > 0 && s.frequency > 0))
+    if (!(duration <= 150 && frequency <= 9999 && duration > 0 && frequency > 0))
         return -2;
 
     std::lock_guard<std::mutex> lock(modbus_mutex);
-
-    // Записываем в локальные регистры
-    usRegHoldingBuf[0] = s.frequency;
-    usRegHoldingBuf[1] = s.duration;
-
-    start_signal.frequency = s.frequency;
-    start_signal.duration = s.duration;
-    start_signal.interval = s.interval;
+    usRegHoldingBuf[0] = frequency;
+    usRegHoldingBuf[1] = duration;
     urgent_sync_flag.store(true);
-
     return 0;
 }
 
-start_signal_struct core::getSignals() const
+bool core::getSignalEnabled()
 {
-    return start_signal_struct{start_signal.IsEnabled,
-                               start_signal.frequency,
-                               start_signal.duration,
-                               start_signal.interval};
+    std::lock_guard<std::mutex> lock(modbus_mutex);
+    return usCoilsBuf[0] & 1;
+}
+
+uint16_t core::getSignalFrequency()
+{
+    std::lock_guard<std::mutex> lock(modbus_mutex);
+    return usRegHoldingBuf[0];
+}
+
+uint16_t core::getSignalDuration()
+{
+    std::lock_guard<std::mutex> lock(modbus_mutex);
+    return usRegHoldingBuf[1];
 }
 
 void core::fill_std_values()
 {
-    memset(&heater_block, 0, sizeof(heater_block));
-    memset(&energy_block, 0, sizeof(energy_block));
-    memset(&cathode_block, 0, sizeof(cathode_block));
-    memset(&start_signal, 0, sizeof(start_signal));
+    energy_impulse = 0;
+    cathode_impulse_i = 0;
+    cathode_impulse_u = 0;
+    energy_impulse_pos = 0;
+    cathode_impulse_i_pos = 0;
+    cathode_impulse_u_pos = 0;
 }
 
 void core::fill_coef()
@@ -350,6 +305,7 @@ void core::syncRegistersWithDevice()
         == REG_HOLDING_NREGS) {
         bool need_update_holding = false;
         succes_count++;
+
         for (int i = 0; i < REG_HOLDING_NREGS; i++) {
             if (device_holding[i] != usRegHoldingBuf[i]) {
                 need_update_holding = true;
@@ -383,6 +339,7 @@ void core::syncRegistersWithDevice()
             for (int i = 0; i < COILS_N; i++) {
                 coils_to_write[i] = (usCoilsBuf[0] >> i) & 1;
             }
+
             if (mb_cli->WriteCoils(coils_to_write, COILS_START, COILS_N, 300) == COILS_N)
                 succes_count++;
             else
@@ -392,39 +349,6 @@ void core::syncRegistersWithDevice()
         error_count++;
 }
 
-void core::updateStructuresFromRegisters()
-{
-    std::lock_guard<std::mutex> lock(modbus_mutex);
-
-    // Обновляем структуры из input регистров
-    energy_block.control_le = usRegInputBuf[0];
-    heater_block.control_i = usRegInputBuf[1];
-    cathode_block.measure_cathode = usRegInputBuf[2];
-    cathode_block.control_cathode = usRegInputBuf[3];
-    energy_block.control_he = usRegInputBuf[4];
-    heater_block.measure_i = usRegInputBuf[5];
-    energy_block.measure_le = usRegInputBuf[6];
-    heater_block.measure_u = usRegInputBuf[7];
-    energy_block.measure_he = usRegInputBuf[8];
-
-    // Обновляем из discrete
-    uint16_t discrete = usDiscreteBuf[0];
-    heater_block.IsEnabled = (discrete >> 0) & 1;
-    energy_block.IsEnabled = (discrete >> 1) & 1;
-    cathode_block.IsEnabled = (discrete >> 2) & 1;
-    energy_block.LE_or_HE = (discrete >> 3) & 1;
-    heater_block.IsReady = (discrete >> 4) & 1;
-
-    // Обновляем из holding и coils для start_signal
-    start_signal.frequency = usRegHoldingBuf[0];
-    start_signal.duration = usRegHoldingBuf[1];
-    start_signal.IsEnabled = usCoilsBuf[0] & 1;
-
-    // Обновляем настройки АЦП из holding регистров
-    adc_settings.channel = usRegHoldingBuf[2];
-    adc_settings.n_samples = usRegHoldingBuf[3];
-    // averaging хранится локально, не в регистрах устройства
-}
 void core::initialSyncFromDevice()
 {
     if (conn_status != CONNECTED)
@@ -432,7 +356,6 @@ void core::initialSyncFromDevice()
 
     std::lock_guard<std::mutex> lock(modbus_mutex);
 
-    // Читаем все регистры с устройства
     uint16_t device_input[REG_INPUT_NREGS];
     uint8_t device_discrete[DISCRETE_N];
     uint16_t device_holding[REG_HOLDING_NREGS];
@@ -453,13 +376,13 @@ void core::initialSyncFromDevice()
         }
     }
 
-    // Читаем Holding регистры (БЕЗ записи обратно на устройство)
+    // Читаем Holding регистры
     if (mb_cli->ReadHoldingRegisters(device_holding, REG_HOLDING_START, REG_HOLDING_NREGS, 1000)
         == REG_HOLDING_NREGS) {
         memcpy(usRegHoldingBuf, device_holding, sizeof(usRegHoldingBuf));
     }
 
-    // Читаем Coils (БЕЗ записи обратно на устройство)
+    // Читаем Coils
     if (mb_cli->ReadCoils(device_coils, COILS_START, COILS_N, 1000) == COILS_N) {
         usCoilsBuf[0] = 0;
         for (int i = 0; i < COILS_N; i++) {
@@ -468,27 +391,32 @@ void core::initialSyncFromDevice()
         }
     }
 }
+
 void core::adcThreadLoop()
 {
-
     std::unique_ptr<Package<uint8_t>> pack = nullptr;
     List<Package<uint8_t>> *queue = new List<Package<uint8_t>>();
+
+    int current_averaging;
+    int current_n_samples;
+
     while (!abortFlag.load()) {
-        int current_averaging;
-        int current_n_samples;
         {
-            std::lock_guard<std::mutex> lock(mtxADCsettings);
-            current_averaging = adc_settings.averaging;
-            current_n_samples = adc_settings.n_samples;
+            std::lock_guard<std::mutex> lock(modbus_mutex);
+            current_n_samples = usRegHoldingBuf[3];
+            current_averaging = usRegHoldingBuf[5];
         }
+
         for (int i = 0; i < current_averaging; i++) {
-            pack = GetADCBytes();
+            pack = GetADCBytes(current_n_samples);
             if (pack)
                 queue->add(std::move(pack));
         }
+
         if (abortFlag.load())
             break;
-        if (queue->size() >= current_averaging) {
+
+        if (queue->size() == current_averaging) {
             QMetaObject::invokeMethod(
                 this,
                 [this, queue, current_n_samples, current_averaging]() {
@@ -498,6 +426,7 @@ void core::adcThreadLoop()
             queue = new List<Package<uint8_t>>();
         }
     }
+
     delete queue;
 }
 
@@ -508,34 +437,29 @@ void core::modbusUpdateLoop()
     while (!abortModbusFlag.load()) {
         if (conn_status == CONNECTED) {
             bool need_sync = false;
+
             // Проверяем флаг срочной синхронизации
             if (urgent_sync_flag.load()) {
                 need_sync = true;
-                urgent_sync_flag.store(false); // Сбрасываем флаг
+                urgent_sync_flag.store(false);
             } else {
-                // Проверяем прошло ли 500мс с последней синхронизации
+                // Проверяем прошло ли 600мс с последней синхронизации
                 auto now = std::chrono::steady_clock::now();
                 auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                     now - last_sync_time);
-                if (elapsed.count() >= 500) {
+                if (elapsed.count() >= 600) {
                     need_sync = true;
                 }
             }
 
             if (need_sync) {
-                // Синхронизируем регистры с устройством
                 syncRegistersWithDevice();
-                // Обновляем структуры из регистров
-                updateStructuresFromRegisters();
-                // Уведомляем UI об обновлении данных
                 QMetaObject::invokeMethod(
                     this, [this]() { emit dataUpdated(); }, Qt::QueuedConnection);
-
                 last_sync_time = std::chrono::steady_clock::now();
             }
         }
 
-        // Небольшая задержка для освобождения CPU
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 }
@@ -544,6 +468,7 @@ void core::startModbusUpdateThread()
 {
     if (modbusThread.joinable())
         return;
+
     abortModbusFlag.store(false);
     modbusThread = std::thread(&core::modbusUpdateLoop, this);
 }
@@ -591,20 +516,16 @@ void core::clearMBbuf()
     mngr->clearMBlst();
 }
 
-std::unique_ptr<Package<uint8_t>> core::GetADCBytes()
+std::unique_ptr<Package<uint8_t>> core::GetADCBytes(int samples)
 {
     if (conn_status != CONNECTED)
         return nullptr;
+
     std::unique_ptr<Package<uint8_t>> pack = nullptr;
     pack = mngr->getADCpackage();
     if (!pack)
         return nullptr;
-    int current_n_samples;
-    {
-        std::lock_guard<std::mutex> lock(mtxADCsettings);
-        current_n_samples = adc_settings.n_samples;
-    }
-    if (pack->size != 2 * ADC_FRAME_N * current_n_samples + 4)
+    if (pack->size != 2 * ADC_FRAME_N * samples + 4)
         return nullptr;
     return pack;
 }

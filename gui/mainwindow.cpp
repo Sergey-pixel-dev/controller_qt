@@ -104,7 +104,6 @@ void MainWindow::on_button_connect_clicked()
 {
     if (!appCore->isConnected()) {
         QString port = "/dev/" + ui->comboBox_3->currentText();
-
         ConnectResult result = static_cast<ConnectResult>(appCore->connectDevice(port));
 
         switch (result) {
@@ -114,30 +113,25 @@ void MainWindow::on_button_connect_clicked()
             ui->pushButton_2->setEnabled(true);
             ui->checkBox->setEnabled(true);
             ui->label_4->setText("Соединение установлено");
-            //Signals values
-            {
-                QSignalBlocker blocker(ui->checkBox);
-                start_signal_struct signal = appCore->getSignals();
-                ui->spinBox->setValue(signal.frequency);
-                ui->doubleSpinBox_27->setValue(signal.duration / 10.0);
-                ui->spinBox_2->setValue(signal.interval);
-                ui->checkBox->setCheckState(signal.IsEnabled ? Qt::Checked : Qt::Unchecked);
-                ui->checkBox->setText(signal.IsEnabled ? "ВКЛ" : "ВЫКЛ");
-            }
+
+            // Читаем значения сигналов из регистров
+            QSignalBlocker blocker(ui->checkBox);
+            ui->spinBox->setValue(appCore->getSignalFrequency());
+            ui->doubleSpinBox_27->setValue(appCore->getSignalDuration() / 10.0);
+            ui->checkBox->setCheckState(appCore->getSignalEnabled() ? Qt::Checked : Qt::Unchecked);
+            ui->checkBox->setText(appCore->getSignalEnabled() ? "ВКЛ" : "ВЫКЛ");
+
             break;
         }
         case ConnectResult::AlreadyConnected:
             showErrMsgBox("Предупреждение", "Устройство уже подключено");
             break;
-
         case ConnectResult::DataNotReceived:
             showErrMsgBox("Ошибка", "Данные не были получены");
             break;
-
         case ConnectResult::ManagerStartError:
             showErrMsgBox("Ошибка", "Ошибка запуска менеджера");
             break;
-
         case ConnectResult::PortOpenError:
             showErrMsgBox("Ошибка", "Ошибка подключения к порту");
             break;
@@ -156,7 +150,7 @@ void MainWindow::on_pushButton_2_clicked()
     }
 
     if (!appCore->isADCRunning()) {
-        if (!appCore->getSignals().IsEnabled) {
+        if (!appCore->getSignalEnabled()) {
             showErrMsgBox("Ошибка", "Сигнал \"СТАРТ\" не установлен");
             return;
         }
@@ -206,12 +200,11 @@ void MainWindow::on_checkBox_checkStateChanged(const Qt::CheckState &arg1)
 
 void MainWindow::on_pushButton_clicked()
 {
-    start_signal_struct signal{false,
-                               (uint16_t) ui->spinBox->value(),
-                               (uint16_t) (ui->doubleSpinBox_27->value() * 10),
-                               (uint16_t) ui->spinBox_2->value()};
+    SignalResult result = static_cast<SignalResult>(
+        appCore->setSignals((uint16_t) ui->spinBox->value(),
+                            (uint16_t) (ui->doubleSpinBox_27->value() * 10),
+                            (uint16_t) ui->spinBox_2->value()));
 
-    SignalResult result = static_cast<SignalResult>(appCore->setSignals(signal));
     switch (result) {
     case SignalResult::Success:
         // Всё хорошо
@@ -257,6 +250,10 @@ void MainWindow::on_comboBox_activated(int index)
 
 void MainWindow::on_comboBox_2_currentIndexChanged(int index)
 {
+    {
+        std::lock_guard<std::mutex> lock(appCore->modbus_mutex);
+        appCore->usRegHoldingBuf[2] = index + 1;
+    }
     updateImpulsePosition(index);
     updateChannelLabels(index);
 }
@@ -269,8 +266,8 @@ void MainWindow::on_comboBox_3_currentIndexChanged(int index)
 void MainWindow::on_comboBox_4_currentIndexChanged(int index)
 {
     {
-        std::lock_guard<std::mutex> lock(appCore->mtxADCsettings);
-        appCore->adc_settings.averaging = pow(4, index);
+        std::lock_guard<std::mutex> lock(appCore->modbus_mutex);
+        appCore->usRegHoldingBuf[5] = pow(4, index);
     }
 }
 
@@ -298,16 +295,15 @@ void MainWindow::on_comboBox_7_currentIndexChanged(int index)
 void MainWindow::on_doubleSpinBox_valueChanged(double arg1)
 {
     uint16_t i_offset = arg1 * STM32_TIM_FREQ;
-
     switch (ui->comboBox_2->currentIndex()) {
     case 0:
-        appCore->energy_block.impulse_pos = i_offset;
+        appCore->energy_impulse_pos = i_offset;
         break;
     case 1:
-        appCore->cathode_block.impulse_i_pos = i_offset;
+        appCore->cathode_impulse_i_pos = i_offset;
         break;
     case 2:
-        appCore->cathode_block.impulse_u_pos = i_offset;
+        appCore->cathode_impulse_u_pos = i_offset;
         break;
     }
 
@@ -318,16 +314,15 @@ void MainWindow::on_doubleSpinBox_valueChanged(double arg1)
 void MainWindow::on_horizontalSlider_valueChanged(int value)
 {
     uint16_t i_offset = value;
-
     switch (ui->comboBox_2->currentIndex()) {
     case 0:
-        appCore->energy_block.impulse_pos = i_offset;
+        appCore->energy_impulse_pos = i_offset;
         break;
     case 1:
-        appCore->cathode_block.impulse_i_pos = i_offset;
+        appCore->cathode_impulse_i_pos = i_offset;
         break;
     case 2:
-        appCore->cathode_block.impulse_u_pos = i_offset;
+        appCore->cathode_impulse_u_pos = i_offset;
         break;
     }
 
@@ -393,9 +388,6 @@ void MainWindow::setMeasurementStartedState()
 {
     ui->pushButton_2->setText("СТОП");
     ui->label_47->setText("Оцифровка запущена");
-    ui->comboBox_2->setEnabled(false);
-    //ui->section->toggle(false);
-    //ui->section->SetDisable(true);
     ui->checkBox->setDisabled(true);
 }
 
@@ -403,65 +395,72 @@ void MainWindow::setMeasurementStoppedState()
 {
     ui->pushButton_2->setText("СТАРТ");
     ui->label_47->setText("Оцифровка остановлена");
-    ui->comboBox_2->setEnabled(true);
-    ui->section->SetDisable(false);
     ui->checkBox->setDisabled(false);
 }
 
 void MainWindow::updateScreenValues()
 {
-    // Heater block
-    ui->widget->setActive(appCore->heater_block.IsEnabled);
-    ui->label->setText(appCore->heater_block.IsEnabled ? "ВКЛ" : "ВЫКЛ");
-    ui->label_8->setText(appCore->heater_block.IsReady ? "ГОТОВ" : "НЕ ГОТОВ");
+    std::lock_guard<std::mutex> lock(appCore->modbus_mutex);
 
-    ui->doubleSpinBox_1->setValue(appCore->heater_block.control_i / 1000.0);
-    ui->doubleSpinBox_3->setValue(appCore->heater_block.control_i * appCore->coef.coef_i_set
-                                  / 1000.0);
-    ui->doubleSpinBox_4->setValue(appCore->heater_block.measure_i / 1000.0);
-    ui->doubleSpinBox_5->setValue(appCore->heater_block.measure_i * appCore->coef.coef_i_meas
-                                  / 1000.0);
-    ui->doubleSpinBox_9->setValue(appCore->heater_block.measure_u / 1000.0);
-    ui->doubleSpinBox_10->setValue(appCore->heater_block.measure_u
-                                   * appCore->coef.coef_u_heater_meas / 1000.0);
+    uint16_t discrete = appCore->usDiscreteBuf[0];
 
-    // Energy block
-    ui->widget_5->setActive(appCore->energy_block.IsEnabled);
-    ui->label_5->setText(appCore->energy_block.IsEnabled ? "ВКЛ" : "ВЫКЛ");
-    ui->label_3->setText(appCore->energy_block.LE_or_HE ? "Выбрана ВЭ" : "Выбрана НЭ");
+    // Heater block (данные из input регистров и discrete)
+    bool heater_enabled = (discrete >> 0) & 1;
+    bool heater_ready = (discrete >> 4) & 1;
+    uint16_t heater_control_i = appCore->usRegInputBuf[1];
+    uint16_t heater_measure_i = appCore->usRegInputBuf[5];
+    uint16_t heater_measure_u = appCore->usRegInputBuf[7];
 
-    ui->doubleSpinBox_11->setValue(appCore->energy_block.control_he / 1000.0);
-    ui->doubleSpinBox_15->setValue(appCore->energy_block.control_he * appCore->coef.coef_u_he_set
-                                   / 1000000.0);
-    ui->doubleSpinBox_17->setValue(appCore->energy_block.measure_he / 1000.0);
-    ui->doubleSpinBox_22->setValue(appCore->energy_block.measure_he * appCore->coef.coef_u_he_meas
-                                   / 1000000.0);
-    ui->doubleSpinBox_19->setValue(appCore->energy_block.control_le / 1000.0);
-    ui->doubleSpinBox_18->setValue(appCore->energy_block.control_le * appCore->coef.coef_u_le_set
-                                   / 1000000.0);
-    ui->doubleSpinBox_21->setValue(appCore->energy_block.measure_le / 1000.0);
-    ui->doubleSpinBox_23->setValue(appCore->energy_block.measure_le * appCore->coef.coef_u_le_meas
-                                   / 1000000.0);
+    ui->widget->setActive(heater_enabled);
+    ui->label->setText(heater_enabled ? "ВКЛ" : "ВЫКЛ");
+    ui->label_8->setText(heater_ready ? "ГОТОВ" : "НЕ ГОТОВ");
+    ui->doubleSpinBox_1->setValue(heater_control_i / 1000.0);
+    ui->doubleSpinBox_3->setValue(heater_control_i * appCore->coef.coef_i_set / 1000.0);
+    ui->doubleSpinBox_4->setValue(heater_measure_i / 1000.0);
+    ui->doubleSpinBox_5->setValue(heater_measure_i * appCore->coef.coef_i_meas / 1000.0);
+    ui->doubleSpinBox_9->setValue(heater_measure_u / 1000.0);
+    ui->doubleSpinBox_10->setValue(heater_measure_u * appCore->coef.coef_u_heater_meas / 1000.0);
 
-    // Cathode block
-    ui->widget_4->setActive(appCore->cathode_block.IsEnabled);
-    ui->label_6->setText(appCore->cathode_block.IsEnabled ? "ВКЛ" : "ВЫКЛ");
+    // Energy block (данные из input регистров и discrete)
+    bool energy_enabled = (discrete >> 1) & 1;
+    bool le_or_he = (discrete >> 3) & 1;
+    uint16_t energy_control_le = appCore->usRegInputBuf[0];
+    uint16_t energy_control_he = appCore->usRegInputBuf[4];
+    uint16_t energy_measure_le = appCore->usRegInputBuf[6];
+    uint16_t energy_measure_he = appCore->usRegInputBuf[8];
 
-    ui->doubleSpinBox_24->setValue(appCore->cathode_block.control_cathode / 1000.0);
-    ui->doubleSpinBox_25->setValue(appCore->cathode_block.control_cathode
-                                   * appCore->coef.coef_u_cat_set / 1000000.0);
-    ui->doubleSpinBox_26->setValue(appCore->cathode_block.measure_cathode / 1000.0);
-    ui->doubleSpinBox_16->setValue(appCore->cathode_block.measure_cathode
-                                   * appCore->coef.coef_u_cat_meas / 1000000.0);
+    ui->widget_5->setActive(energy_enabled);
+    ui->label_5->setText(energy_enabled ? "ВКЛ" : "ВЫКЛ");
+    ui->label_3->setText(le_or_he ? "Выбрана ВЭ" : "Выбрана НЭ");
+    ui->doubleSpinBox_11->setValue(energy_control_he / 1000.0);
+    ui->doubleSpinBox_15->setValue(energy_control_he * appCore->coef.coef_u_he_set / 1000000.0);
+    ui->doubleSpinBox_17->setValue(energy_measure_he / 1000.0);
+    ui->doubleSpinBox_22->setValue(energy_measure_he * appCore->coef.coef_u_he_meas / 1000000.0);
+    ui->doubleSpinBox_19->setValue(energy_control_le / 1000.0);
+    ui->doubleSpinBox_18->setValue(energy_control_le * appCore->coef.coef_u_le_set / 1000000.0);
+    ui->doubleSpinBox_21->setValue(energy_measure_le / 1000.0);
+    ui->doubleSpinBox_23->setValue(energy_measure_le * appCore->coef.coef_u_le_meas / 1000000.0);
 
-    // Impulse values
-    ui->doubleSpinBox_2->setValue(appCore->energy_block.impulse / 1000.0);
-    ui->doubleSpinBox_7->setValue(appCore->cathode_block.impulse_i / 1000.0);
-    ui->doubleSpinBox_6->setValue(appCore->cathode_block.impulse_u / 1000.0);
+    // Cathode block (данные из input регистров и discrete)
+    bool cathode_enabled = (discrete >> 2) & 1;
+    uint16_t cathode_control = appCore->usRegInputBuf[3];
+    uint16_t cathode_measure = appCore->usRegInputBuf[2];
 
-    //Error and succes statistics
-    ui->label_49->setText(QString(QString::number(appCore->succes_count)));
-    ui->label_52->setText(QString(QString::number(appCore->error_count)));
+    ui->widget_4->setActive(cathode_enabled);
+    ui->label_6->setText(cathode_enabled ? "ВКЛ" : "ВЫКЛ");
+    ui->doubleSpinBox_24->setValue(cathode_control / 1000.0);
+    ui->doubleSpinBox_25->setValue(cathode_control * appCore->coef.coef_u_cat_set / 1000000.0);
+    ui->doubleSpinBox_26->setValue(cathode_measure / 1000.0);
+    ui->doubleSpinBox_16->setValue(cathode_measure * appCore->coef.coef_u_cat_meas / 1000000.0);
+
+    // Impulse values (локальные переменные)
+    ui->doubleSpinBox_2->setValue(appCore->energy_impulse / 1000.0);
+    ui->doubleSpinBox_7->setValue(appCore->cathode_impulse_i / 1000.0);
+    ui->doubleSpinBox_6->setValue(appCore->cathode_impulse_u / 1000.0);
+
+    // Error and success statistics
+    ui->label_49->setText(QString::number(appCore->succes_count));
+    ui->label_52->setText(QString::number(appCore->error_count));
 }
 
 void MainWindow::updateChart(const QVector<QPointF> &points)
@@ -473,27 +472,26 @@ void MainWindow::updateChart(const QVector<QPointF> &points)
         if (!signalProcessor->origin_time.isEmpty()) {
             switch (ui->comboBox_2->currentIndex()) {
             case 0:
-                if (appCore->energy_block.impulse_pos < signalProcessor->origin_time.size()) {
+                if (appCore->energy_impulse_pos < signalProcessor->origin_time.size()) {
                     my_chart->DrawAverage(
-                        QPointF(signalProcessor->origin_time[appCore->energy_block.impulse_pos]
-                                    / 1000.0,
-                                appCore->energy_block.impulse));
+                        QPointF(signalProcessor->origin_time[appCore->energy_impulse_pos] / 1000.0,
+                                appCore->energy_impulse));
                 }
                 break;
             case 1:
-                if (appCore->cathode_block.impulse_i_pos < signalProcessor->origin_time.size()) {
+                if (appCore->cathode_impulse_i_pos < signalProcessor->origin_time.size()) {
                     my_chart->DrawAverage(
-                        QPointF(signalProcessor->origin_time[appCore->cathode_block.impulse_i_pos]
+                        QPointF(signalProcessor->origin_time[appCore->cathode_impulse_i_pos]
                                     / 1000.0,
-                                appCore->cathode_block.impulse_i));
+                                appCore->cathode_impulse_i));
                 }
                 break;
             case 2:
-                if (appCore->cathode_block.impulse_u_pos < signalProcessor->origin_time.size()) {
+                if (appCore->cathode_impulse_u_pos < signalProcessor->origin_time.size()) {
                     my_chart->DrawAverage(
-                        QPointF(signalProcessor->origin_time[appCore->cathode_block.impulse_u_pos]
+                        QPointF(signalProcessor->origin_time[appCore->cathode_impulse_u_pos]
                                     / 1000.0,
-                                appCore->cathode_block.impulse_u));
+                                appCore->cathode_impulse_u));
                 }
                 break;
             }
@@ -519,29 +517,29 @@ void MainWindow::onDataProcessed(List<PackageBuf> *queue, int samples, int avera
 void MainWindow::updateImpulseValues()
 {
     if (!signalProcessor->origin_data.isEmpty()) {
-        int current_channel = appCore->adc_settings.channel;
+        int current_channel;
+        {
+            std::lock_guard<std::mutex> lock(appCore->modbus_mutex);
+            current_channel = appCore->usRegHoldingBuf[2]; // Канал из регистров
+        }
 
         switch (current_channel) {
         case 1: // Импульс У.Э.
-            if (appCore->energy_block.impulse_pos < signalProcessor->origin_data.size()) {
-                uint16_t new_value = signalProcessor->origin_data[appCore->energy_block.impulse_pos];
-                appCore->energy_block.impulse = (appCore->energy_block.impulse + new_value) / 2;
+            if (appCore->energy_impulse_pos < signalProcessor->origin_data.size()) {
+                uint16_t new_value = signalProcessor->origin_data[appCore->energy_impulse_pos];
+                appCore->energy_impulse = (appCore->energy_impulse + new_value) / 2;
             }
             break;
         case 2: // Импульс I К.
-            if (appCore->cathode_block.impulse_i_pos < signalProcessor->origin_data.size()) {
-                uint16_t new_value = signalProcessor
-                                         ->origin_data[appCore->cathode_block.impulse_i_pos];
-                appCore->cathode_block.impulse_i = (appCore->cathode_block.impulse_i + new_value)
-                                                   / 2;
+            if (appCore->cathode_impulse_i_pos < signalProcessor->origin_data.size()) {
+                uint16_t new_value = signalProcessor->origin_data[appCore->cathode_impulse_i_pos];
+                appCore->cathode_impulse_i = (appCore->cathode_impulse_i + new_value) / 2;
             }
             break;
         case 3: // Импульс U К.
-            if (appCore->cathode_block.impulse_u_pos < signalProcessor->origin_data.size()) {
-                uint16_t new_value = signalProcessor
-                                         ->origin_data[appCore->cathode_block.impulse_u_pos];
-                appCore->cathode_block.impulse_u = (appCore->cathode_block.impulse_u + new_value)
-                                                   / 2;
+            if (appCore->cathode_impulse_u_pos < signalProcessor->origin_data.size()) {
+                uint16_t new_value = signalProcessor->origin_data[appCore->cathode_impulse_u_pos];
+                appCore->cathode_impulse_u = (appCore->cathode_impulse_u + new_value) / 2;
             }
             break;
         }
@@ -564,16 +562,16 @@ void MainWindow::updateImpulsePosition(int channelIndex)
 
     switch (channelIndex) {
     case 0:
-        ui->doubleSpinBox->setValue(appCore->energy_block.impulse_pos / (double) STM32_TIM_FREQ);
-        ui->horizontalSlider->setValue(appCore->energy_block.impulse_pos);
+        ui->doubleSpinBox->setValue(appCore->energy_impulse_pos / (double) STM32_TIM_FREQ);
+        ui->horizontalSlider->setValue(appCore->energy_impulse_pos);
         break;
     case 1:
-        ui->doubleSpinBox->setValue(appCore->cathode_block.impulse_i_pos / (double) STM32_TIM_FREQ);
-        ui->horizontalSlider->setValue(appCore->cathode_block.impulse_i_pos);
+        ui->doubleSpinBox->setValue(appCore->cathode_impulse_i_pos / (double) STM32_TIM_FREQ);
+        ui->horizontalSlider->setValue(appCore->cathode_impulse_i_pos);
         break;
     case 2:
-        ui->doubleSpinBox->setValue(appCore->cathode_block.impulse_u_pos / (double) STM32_TIM_FREQ);
-        ui->horizontalSlider->setValue(appCore->cathode_block.impulse_u_pos);
+        ui->doubleSpinBox->setValue(appCore->cathode_impulse_u_pos / (double) STM32_TIM_FREQ);
+        ui->horizontalSlider->setValue(appCore->cathode_impulse_u_pos);
         break;
     }
 }
@@ -606,13 +604,8 @@ void MainWindow::on_doubleSpinBox_13_valueChanged(double arg1)
 
 void MainWindow::on_doubleSpinBox_14_valueChanged(double arg1)
 {
-    {
-        std::lock_guard<std::mutex> lock1(appCore->mtxADCsettings);
-        std::lock_guard<std::mutex> lock2(appCore->modbus_mutex);
-
-        appCore->adc_settings.n_samples = GRID_DIVISIONS * arg1 * 3 + 3;
-        appCore->usRegHoldingBuf[3] = appCore->adc_settings.n_samples;
-    }
+    std::lock_guard<std::mutex> lock(appCore->modbus_mutex);
+    appCore->usRegHoldingBuf[3] = GRID_DIVISIONS * arg1 * 3 + 3; // n_samples напрямую в регистр
     my_chart->setTimeScale(arg1);
 }
 void MainWindow::on_doubleSpinBox_12_valueChanged(double arg1)
