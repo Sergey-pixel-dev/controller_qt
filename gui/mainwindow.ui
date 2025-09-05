@@ -85,19 +85,6 @@
        </widget>
       </item>
       <item>
-       <widget class="QLabel" name="label_4">
-        <property name="font">
-         <font>
-          <pointsize>14</pointsize>
-          <italic>true</italic>
-         </font>
-        </property>
-        <property name="text">
-         <string>Соединение отсутствует</string>
-        </property>
-       </widget>
-      </item>
-      <item>
        <spacer name="horizontalSpacer_8">
         <property name="orientation">
          <enum>Qt::Orientation::Horizontal</enum>
@@ -2215,7 +2202,7 @@ QSlider::handle:horizontal {
 </string>
               </property>
               <property name="maximum">
-               <number>720</number>
+               <number>2160</number>
               </property>
               <property name="orientation">
                <enum>Qt::Orientation::Horizontal</enum>
@@ -2258,7 +2245,7 @@ QSlider::handle:horizontal {
                <number>3</number>
               </property>
               <property name="maximum">
-               <double>10.000000000000000</double>
+               <double>30.000000000000000</double>
               </property>
               <property name="singleStep">
                <double>0.014000000000000</double>

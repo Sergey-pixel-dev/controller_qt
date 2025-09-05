@@ -97,13 +97,13 @@ bool Manager::extractADC(std::deque<uint8_t> &buf)
         return false;
 
     end += 2;
-
     int packet_size = int(end - beg);
     auto pack = std::make_unique<Package<uint8_t>>();
     pack->size = packet_size;
     pack->packageBuf = new uint8_t[packet_size];
     std::copy(beg, end, pack->packageBuf);
-
+    printf("bytes: %d\n", pack->size);
+    fflush(stdout);
     lstADC.add(std::move(pack));
 
     buf.erase(beg, end);
@@ -167,7 +167,7 @@ bool Manager::extractModbus(std::deque<uint8_t> &buf)
 int Manager::main_loop()
 {
     std::deque<uint8_t> rxBuf;
-    uint8_t chunk[1400]; // Размер больше максимального пакета!!!
+    uint8_t chunk[3000]; // Размер больше максимального пакета!!!
     int idle_count = 0;
     int readed = 0;
 
@@ -176,41 +176,34 @@ int Manager::main_loop()
 
     sport.flushReceiver();
 
-    while (!isAborted.load())
-    {
+    while (!isAborted.load()) {
         {
             std::lock_guard<std::mutex> lock(mtxWriteQueue);
-            while (!writeQueue.empty())
-            {
+            while (!writeQueue.empty()) {
                 std::unique_ptr<Package<uint8_t>> pack = std::move(writeQueue.front());
                 writeQueue.pop();
                 sport.writeBytes(pack->packageBuf, pack->size);
-                std::this_thread::sleep_for(std::chrono::milliseconds(3));
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
             }
         }
 
-        readed = sport.readBytes(chunk, sizeof(chunk), 2, 500);
+        readed = sport.readBytes(chunk, sizeof(chunk), 2, 0);
 
         if (readed < 0)
             break;
 
-        if (readed > 0)
-        {
+        if (readed > 0) {
             rxBuf.insert(rxBuf.end(), chunk, chunk + readed);
             idle_count = 0;
-        }
-        else
-        {
+        } else {
             idle_count++;
         }
 
         // Обрабатываем пакеты только когда нет входящих данных
-        if (idle_count > 3 || rxBuf.size() > 5000)
-        {
+        if (idle_count > 3 || rxBuf.size() > 6000) {
             bool progress = true;
             int process_iterations = 0;
-            while (progress && !isAborted.load() && process_iterations < 10)
-            {
+            while (progress && !isAborted.load() && process_iterations < 10) {
                 progress = false;
                 progress |= extractADC(rxBuf);
                 progress |= extractModbus(rxBuf);
@@ -219,8 +212,7 @@ int Manager::main_loop()
             idle_count = 0;
         }
 
-        if (rxBuf.size() > RXBUF_HWM)
-        {
+        if (rxBuf.size() > RXBUF_HWM) {
             rxBuf.erase(rxBuf.begin(), rxBuf.begin() + RXBUF_TRIM);
         }
         std::this_thread::sleep_for(std::chrono::microseconds(500));

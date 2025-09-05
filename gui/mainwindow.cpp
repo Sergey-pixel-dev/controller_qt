@@ -76,7 +76,6 @@ void MainWindow::setupUI()
     ui->pushButton->setEnabled(false);
     ui->pushButton_2->setEnabled(false);
     ui->checkBox->setEnabled(false);
-    ui->label_4->setText("Соединение отсутствует");
 
     // Загружаем доступные порты
     on_pushButton_3_clicked();
@@ -112,7 +111,6 @@ void MainWindow::on_button_connect_clicked()
             ui->pushButton->setEnabled(true);
             ui->pushButton_2->setEnabled(true);
             ui->checkBox->setEnabled(true);
-            ui->label_4->setText("Соединение установлено");
 
             // Читаем значения сигналов из регистров
             QSignalBlocker blocker(ui->checkBox);
@@ -348,7 +346,6 @@ void MainWindow::setDisconnectedState()
     ui->pushButton->setEnabled(false);
     ui->pushButton_2->setEnabled(false);
     ui->checkBox->setEnabled(false);
-    ui->label_4->setText("Соединение отсутствует");
     setMeasurementStoppedState();
 
     // Сброс параметров
