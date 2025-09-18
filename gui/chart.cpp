@@ -38,6 +38,9 @@ Chart::Chart(QSlider *sl)
     average_series->setPointLabelsFont(font);
 
     single_point.resize(1);
+
+    //chart->setAnimationOptions(QChart::NoAnimation);
+    //series->setUseOpenGL(true);
 }
 
 Chart::~Chart()

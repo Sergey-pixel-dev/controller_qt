@@ -336,7 +336,7 @@ void MainWindow::on_doubleSpinBox_editingFinished()
 
 void MainWindow::on_tabWidget_currentChanged(int index)
 {
-    // Обработчик переключения вкладок
+    appCore->period_mb_ms = index ? 1200 : 600;
 }
 
 // Private helper methods
@@ -397,7 +397,8 @@ void MainWindow::setMeasurementStoppedState()
 
 void MainWindow::updateScreenValues()
 {
-    std::lock_guard<std::mutex> lock(appCore->modbus_mutex);
+    std::lock_guard<std::mutex> lock(
+        appCore->modbus_mutex); // хочет блокнуть мьютекс -> но он много где используется -> долго ждет
 
     uint16_t discrete = appCore->usDiscreteBuf[0];
 

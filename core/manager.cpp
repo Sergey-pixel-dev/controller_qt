@@ -49,13 +49,13 @@ void Manager::queueWrite(std::unique_ptr<Package<uint8_t>> pack)
     writeQueue.push(std::move(pack));
 }
 
-std::unique_ptr<Package<uint8_t>> Manager::getADCpackage(int timeout)
+std::unique_ptr<Package<uint8_t>> Manager::getADCpackage()
 {
     std::lock_guard<std::mutex> lock(mtxADC);
     return lstADC.pop();
 }
 
-std::unique_ptr<Package<uint8_t>> Manager::getMBpackage(int timeout)
+std::unique_ptr<Package<uint8_t>> Manager::getMBpackage()
 {
     std::lock_guard<std::mutex> lock(mtxMB);
     return lstMB.pop();
@@ -88,6 +88,8 @@ void Manager::close()
 
 bool Manager::extractADC(std::deque<uint8_t> &buf)
 {
+    static int count = 0;
+    static int error = 0;
     auto beg = std::search(buf.begin(), buf.end(), std::begin(ADC_HDR), std::end(ADC_HDR));
     if (beg == buf.end())
         return false;
@@ -98,6 +100,9 @@ bool Manager::extractADC(std::deque<uint8_t> &buf)
 
     end += 2;
     int packet_size = int(end - beg);
+    if (packet_size != 2968)
+        error++;
+    count++;
     auto pack = std::make_unique<Package<uint8_t>>();
     pack->size = packet_size;
     pack->packageBuf = new uint8_t[packet_size];
@@ -105,14 +110,13 @@ bool Manager::extractADC(std::deque<uint8_t> &buf)
     printf("bytes: %d\n", pack->size);
     fflush(stdout);
     lstADC.add(std::move(pack));
-
     buf.erase(beg, end);
     return true;
 }
 
 bool Manager::extractModbus(std::deque<uint8_t> &buf)
 {
-    auto it = std::find(buf.begin(), buf.end(), SLAVE_ID_MB);
+    auto it = std::find(buf.begin(), buf.begin() + 100, SLAVE_ID_MB);
     if (it == buf.end())
         return false;
 
@@ -167,7 +171,7 @@ bool Manager::extractModbus(std::deque<uint8_t> &buf)
 int Manager::main_loop()
 {
     std::deque<uint8_t> rxBuf;
-    uint8_t chunk[3000]; // Размер больше максимального пакета!!!
+    uint8_t chunk[3000];
     int idle_count = 0;
     int readed = 0;
 
@@ -183,14 +187,11 @@ int Manager::main_loop()
                 std::unique_ptr<Package<uint8_t>> pack = std::move(writeQueue.front());
                 writeQueue.pop();
                 sport.writeBytes(pack->packageBuf, pack->size);
-                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
         }
 
-        readed = sport.readBytes(chunk, sizeof(chunk), 2, 0);
-
-        if (readed < 0)
-            break;
+        readed = sport.readBytes(chunk, sizeof(chunk), 10, 0);
 
         if (readed > 0) {
             rxBuf.insert(rxBuf.end(), chunk, chunk + readed);
@@ -200,10 +201,10 @@ int Manager::main_loop()
         }
 
         // Обрабатываем пакеты только когда нет входящих данных
-        if (idle_count > 3 || rxBuf.size() > 6000) {
+        if (idle_count > 3 || rxBuf.size() > 5000) {
             bool progress = true;
             int process_iterations = 0;
-            while (progress && !isAborted.load() && process_iterations < 10) {
+            while (progress && !isAborted.load() && process_iterations < 5) {
                 progress = false;
                 progress |= extractADC(rxBuf);
                 progress |= extractModbus(rxBuf);
@@ -215,7 +216,7 @@ int Manager::main_loop()
         if (rxBuf.size() > RXBUF_HWM) {
             rxBuf.erase(rxBuf.begin(), rxBuf.begin() + RXBUF_TRIM);
         }
-        std::this_thread::sleep_for(std::chrono::microseconds(500));
+        //std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
 
     close();

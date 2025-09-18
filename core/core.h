@@ -133,6 +133,8 @@ public:
     int cathode_impulse_i_pos = 0;
     int cathode_impulse_u_pos = 0;
 
+    int period_mb_ms = 700;
+
 signals:
     void adcDataReady(List<Package<uint8_t>> *queue, int samples, int averaging);
     void dataUpdated();

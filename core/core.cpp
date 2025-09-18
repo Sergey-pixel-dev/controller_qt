@@ -362,13 +362,13 @@ void core::initialSyncFromDevice()
     uint8_t device_coils[COILS_N];
 
     // Читаем Input регистры
-    if (mb_cli->ReadInputRegisters(device_input, REG_INPUT_START, REG_INPUT_NREGS, 1000)
+    if (mb_cli->ReadInputRegisters(device_input, REG_INPUT_START, REG_INPUT_NREGS, 300)
         == REG_INPUT_NREGS) {
         memcpy(usRegInputBuf, device_input, sizeof(usRegInputBuf));
     }
 
     // Читаем Discrete
-    if (mb_cli->ReadDiscrete(device_discrete, DISCRETE_START, DISCRETE_N, 1000) == DISCRETE_N) {
+    if (mb_cli->ReadDiscrete(device_discrete, DISCRETE_START, DISCRETE_N, 300) == DISCRETE_N) {
         usDiscreteBuf[0] = 0;
         for (int i = 0; i < DISCRETE_N; i++) {
             if (device_discrete[i])
@@ -377,13 +377,13 @@ void core::initialSyncFromDevice()
     }
 
     // Читаем Holding регистры
-    if (mb_cli->ReadHoldingRegisters(device_holding, REG_HOLDING_START, REG_HOLDING_NREGS, 1000)
+    if (mb_cli->ReadHoldingRegisters(device_holding, REG_HOLDING_START, REG_HOLDING_NREGS, 300)
         == REG_HOLDING_NREGS) {
         memcpy(usRegHoldingBuf, device_holding, sizeof(usRegHoldingBuf));
     }
 
     // Читаем Coils
-    if (mb_cli->ReadCoils(device_coils, COILS_START, COILS_N, 1000) == COILS_N) {
+    if (mb_cli->ReadCoils(device_coils, COILS_START, COILS_N, 300) == COILS_N) {
         usCoilsBuf[0] = 0;
         for (int i = 0; i < COILS_N; i++) {
             if (device_coils[i])
@@ -443,11 +443,10 @@ void core::modbusUpdateLoop()
                 need_sync = true;
                 urgent_sync_flag.store(false);
             } else {
-                // Проверяем прошло ли 600мс с последней синхронизации
                 auto now = std::chrono::steady_clock::now();
                 auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                     now - last_sync_time);
-                if (elapsed.count() >= 600) {
+                if (elapsed.count() >= period_mb_ms) {
                     need_sync = true;
                 }
             }
