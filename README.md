@@ -1,6 +1,6 @@
-# ImpulseGen
+# DM25_Controller_PC
 
-Desktop-приложение на Qt6 — контроллер и осциллограф для STM32-устройства генерации импульсов (серия DM25).
+Десктопное приложение на Qt/C++ для управления и мониторинга высоковольтного импульсного блока (до 30 кВ). Работает поверх Modbus RTU.
 
 ## Что делает
 
@@ -12,4 +12,9 @@ Desktop-приложение на Qt6 — контроллер и осцилло
 
 ## Стек
 
-C++17, Qt6 (Widgets, Charts, SerialPort), Modbus RTU, CMake
+C++, Qt (Widgets), Modbus RTU, UART (Serial Port), многопоточность (QThread)
+
+## Связанные проекты
+
+- [DM25_Controller](https://github.com/Sergey-pixel-dev/DM25_Controller) — прошивка контроллера, с которым работает это приложение
+
